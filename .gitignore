@@ -1,0 +1,12 @@
+
+# Ignore virtual environment
+envi/
+venv/
+env/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore local database if you want a clean start on deploy
+# chatbot.db
