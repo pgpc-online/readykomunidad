@@ -127,10 +127,9 @@ def search_knowledge_base(query, limit=3):
                 (r["question"] or "", r["keywords"] or "", r["answer_en"] or "")
             ).lower()
             score = sum(1 for w in words if len(w) >= 3 and w in haystack)
-            # Require at least 2 meaningful content-word matches to avoid
-            # off-topic questions (e.g. "capital of japan") accidentally
-            # matching on common words shared with KB entries.
-            if score >= 2:
+            # Accept score of 1 if query only has 1 significant content word
+            min_score = 1 if len(words) == 1 else 2
+            if score >= min_score:
                 rows.append((score, r))
     finally:
         conn.close()

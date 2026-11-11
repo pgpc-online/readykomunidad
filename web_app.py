@@ -76,7 +76,8 @@ conversation_state = {
     "last_topic": None,
     "last_year": None,
     "last_month": None,
-    "lang": "en"
+    "lang": "en",
+    "station_mode": False  # Default: Padre Garcia only!
 }
 
 # Common Tagalog words/particles that signal the user is speaking Filipino
@@ -109,10 +110,388 @@ def L(en, tl):
     """Return the text in the current conversation language."""
     return tl if conversation_state.get("lang") == "tl" else en
 
+# ==========================================
+# MODERN COMPARISON CHART & CARD GENERATOR
+# ==========================================
+
+def render_comparison_chart_card(year1, year2, y1_data, y2_data, is_tl=False, incomplete_note=""):
+    """
+    Renders an interactive, side-by-side comparison bar chart card for two years.
+    Uses blue bars for Year 1 and amber/orange bars for Year 2.
+    """
+    months_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
+    vals1 = []
+    vals2 = []
+    for m in range(1, 13):
+        r1 = y1_data[y1_data['Month'] == m]
+        r2 = y2_data[y2_data['Month'] == m]
+        vals1.append(float(r1['rain_batangas'].values[0]) if not r1.empty and pd.notna(r1['rain_batangas'].values[0]) else 0.0)
+        vals2.append(float(r2['rain_batangas'].values[0]) if not r2.empty and pd.notna(r2['rain_batangas'].values[0]) else 0.0)
+
+    total1 = sum(vals1)
+    total2 = sum(vals2)
+    avg_temp1 = y1_data['temp_batangas'].mean()
+    avg_temp2 = y2_data['temp_batangas'].mean()
+
+    # ENSO phase labels
+    p1 = list(y1_data['ens_phase'].dropna().unique())
+    p2 = list(y2_data['ens_phase'].dropna().unique())
+    p1_labels = ', '.join(label_phase(p) for p in p1) if p1 else "Neutral 🟡"
+    p2_labels = ', '.join(label_phase(p) for p in p2) if p2 else "Neutral 🟡"
+
+    # Difference calculation
+    diff = abs(total1 - total2)
+    wetter_year = year1 if total1 > total2 else year2
+    drier_year = year2 if total1 > total2 else year1
+    diff_pct = (diff / min(total1, total2) * 100) if min(total1, total2) > 0 else 0
+
+    # Chart Y-axis scaling
+    peak = max(max(vals1), max(vals2), 10.0)
+    top_limit = peak * 1.15
+    if top_limit <= 100:
+        step = 25
+    elif top_limit <= 200:
+        step = 45
+    elif top_limit <= 400:
+        step = 80
+    else:
+        step = int(top_limit / 4 / 25) * 25 or 50
+
+    top_y = step * 4
+    if top_y < peak:
+        top_y = step * 5
+
+    y_levels = [top_y, step * 3, step * 2, step * 1, 0]
+
+    # SVG layout specs
+    chart_height = 210
+    chart_width = 560
+    margin_left = 60
+    margin_right = 20
+    plot_width = chart_width - margin_left - margin_right
+    slot_width = plot_width / 12
+    bar_width = 9  # Two bars side by side per month
+
+    bars_svg = []
+    labels_svg = []
+
+    for i, (v1, v2, abbr) in enumerate(zip(vals1, vals2, months_abbr)):
+        x_slot = margin_left + (i * slot_width)
+        
+        # Bar 1 (Year 1 - Blue)
+        b1_x = x_slot + (slot_width - (bar_width * 2 + 3)) / 2
+        b1_h = (v1 / top_y) * (chart_height - 45) if top_y > 0 else 0
+        b1_y = (chart_height - 30) - b1_h
+
+        # Bar 2 (Year 2 - Amber)
+        b2_x = b1_x + bar_width + 3
+        b2_h = (v2 / top_y) * (chart_height - 45) if top_y > 0 else 0
+        b2_y = (chart_height - 30) - b2_h
+
+        tooltip_x = b1_x + bar_width
+        tooltip_y = max(min(b1_y, b2_y) - 34, 4)
+
+        bars_svg.append(f"""
+            <g class="bar-group group cursor-pointer">
+                <!-- Bar 1 ({year1}) -->
+                <rect x="{b1_x:.1f}" y="{b1_y:.1f}" width="{bar_width}" height="{max(b1_h, 3):.1f}" rx="3"
+                      class="fill-blue-500 hover:fill-blue-600 dark:fill-blue-400 transition-all duration-150" />
+                <!-- Bar 2 ({year2}) -->
+                <rect x="{b2_x:.1f}" y="{b2_y:.1f}" width="{bar_width}" height="{max(b2_h, 3):.1f}" rx="3"
+                      class="fill-amber-500 hover:fill-amber-600 dark:fill-amber-400 transition-all duration-150" />
+                <!-- Hover Dual Tooltip -->
+                <g class="bar-tooltip opacity-0 transition-all duration-150 pointer-events-none">
+                    <rect x="{tooltip_x - 45:.1f}" y="{tooltip_y:.1f}" width="90" height="28" rx="6"
+                          class="fill-slate-900 dark:fill-slate-100 shadow-md" />
+                    <text x="{tooltip_x:.1f}" y="{tooltip_y + 12:.1f}" text-anchor="middle"
+                          class="fill-blue-300 dark:fill-blue-600 text-[9px] font-semibold">{year1}: {v1:.0f} mm</text>
+                    <text x="{tooltip_x:.1f}" y="{tooltip_y + 23:.1f}" text-anchor="middle"
+                          class="fill-amber-300 dark:fill-amber-600 text-[9px] font-semibold">{year2}: {v2:.0f} mm</text>
+                </g>
+            </g>
+        """)
+
+        labels_svg.append(f"""
+            <text x="{b1_x + bar_width + 1.5:.1f}" y="{chart_height - 10}" text-anchor="middle"
+                  class="fill-slate-500 dark:fill-slate-400 text-[10px] font-medium">{abbr}</text>
+        """)
+
+    grid_svg = []
+    for lvl in y_levels:
+        y_pos = 14 + (chart_height - 44) * (1.0 - (lvl / top_y)) if top_y > 0 else 14
+        grid_svg.append(f"""
+            <line x1="{margin_left}" y1="{y_pos:.1f}" x2="{chart_width - margin_right}" y2="{y_pos:.1f}"
+                  stroke="currentColor" stroke-dasharray="3,3" class="stroke-slate-200 dark:stroke-slate-800" stroke-width="1"/>
+            <text x="{margin_left - 8}" y="{y_pos + 3.5:.1f}" text-anchor="end"
+                  class="fill-slate-400 dark:fill-slate-500 text-[10px]">{int(lvl)} mm</text>
+        """)
+
+    # Localized text strings
+    badge_text = "Historical Comparison · Padre Garcia, Batangas"
+    header_title = f"Rainfall Comparison — {year1} vs {year2}" if not is_tl else f"Paghahambing ng Ulan — {year1} vs {year2}"
+    chart_title = f"Monthly Rainfall Comparison ({year1} vs {year2})" if not is_tl else f"Buwanang Paghahambing ng Ulan ({year1} vs {year2})"
+    chart_subtitle = "Hover over bars to see monthly measurements side-by-side." if not is_tl else "Itapat ang cursor sa bar upang makita ang buwanang sukat."
+
+    summary_headline = (
+        f"In Padre Garcia, <strong>{wetter_year}</strong> recorded <strong>{diff:.1f} mm</strong> (+{diff_pct:.0f}%) more rainfall than {drier_year}."
+        if not is_tl else
+        f"Sa Padre Garcia, ang taong <strong>{wetter_year}</strong> ay nagtala ng <strong>{diff:.1f} mm</strong> (+{diff_pct:.0f}%) mas maraming ulan kaysa sa {drier_year}."
+    )
+
+    verdict_badge = (
+        f"📈 {wetter_year} was wetter by {diff:.0f} mm" if not is_tl else f"📈 Mas maulan noong {wetter_year} ng {diff:.0f} mm"
+    )
+
+    note_html = f"<div class='p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs mb-2 border border-amber-200/60 dark:border-amber-800/60'>{incomplete_note}</div>" if incomplete_note else ""
+
+    return f"""<!-- RAINFALL_CARD -->
+<div class="w-full my-2 space-y-4 animate-fade-in font-sans">
+    {note_html}
+    <!-- Header -->
+    <div>
+        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+            <!-- <span class="text-base">⚖️</span> -->
+            <span class="font-semibold text-slate-900 dark:text-white text-base">{header_title}</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                {badge_text}
+            </span>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{summary_headline}</p>
+    </div>
+
+    <!-- Chart Container Card -->
+    <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <div>
+                <h4 class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{chart_title}</h4>
+                <p class="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-0.5">{chart_subtitle}</p>
+            </div>
+            <!-- Legend -->
+            <div class="flex items-center gap-3 text-xs self-start sm:self-auto pt-1">
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="w-3 h-3 rounded-xs bg-blue-500 inline-block"></span>
+                    <span>{year1}</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="w-3 h-3 rounded-xs bg-amber-500 inline-block"></span>
+                    <span>{year2}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- SVG Grouped Bar Chart -->
+        <div class="w-full overflow-x-auto">
+            <svg viewBox="0 0 {chart_width} {chart_height}" class="w-full h-52 sm:h-60 select-none">
+                {''.join(grid_svg)}
+                {''.join(bars_svg)}
+                {''.join(labels_svg)}
+            </svg>
+        </div>
+    </div>
+
+    <!-- 2-Column Side-by-Side Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <!-- Year 1 Card -->
+        <div class="p-4 rounded-xl bg-white dark:bg-slate-900/90 border border-blue-200/80 dark:border-blue-900/50 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                    <span>{year1} Summary</span>
+                </span>
+                <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{p1_labels}</span>
+            </div>
+            <div class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Total Rainfall:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{total1:.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Monthly Average:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{(total1 / 12.0):.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span class="text-slate-400">Average Temp:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{avg_temp1:.1f}°C</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year 2 Card -->
+        <div class="p-4 rounded-xl bg-white dark:bg-slate-900/90 border border-amber-200/80 dark:border-amber-900/50 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    <span>{year2} Summary</span>
+                </span>
+                <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{p2_labels}</span>
+            </div>
+            <div class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Total Rainfall:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{total2:.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Monthly Average:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{(total2 / 12.0):.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span class="text-slate-400">Average Temp:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{avg_temp2:.1f}°C</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Comparative Verdict -->
+    <div class="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs flex-wrap gap-2">
+        <span class="font-medium text-slate-700 dark:text-slate-200">{verdict_badge}</span>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">Difference: <strong>{diff:.1f} mm</strong></span>
+    </div>
+</div>
+"""
 
 # ==========================================
 # HANDLER FUNCTIONS
 # ==========================================
+# ==========================================
+# HEALTH, FIRST AID & EMERGENCY RESPONSE HANDLERS
+# (Consistent with DOH & Philippine Red Cross guidelines)
+# ==========================================
+
+def handle_heatstroke_emergency():
+    conversation_state["last_topic"] = "heatstroke_emergency"
+    return L(
+        # "🚨 **CRITICAL MEDICAL EMERGENCY: Heatstroke**\n\n"
+        "**Heatstroke is life-threatening.** Do not treat this as simple tiredness or attempt home rest. Immediate emergency response is required.\n\n"
+        "⚠️ **Warning Signs:**\n"
+        "• **Confusion, altered mental state, or strange behavior**\n"
+        "• **Seizures or muscle twitching**\n"
+        "• **Loss of consciousness or fainting**\n"
+        "• **Very hot skin** (Note: *The person may still be sweating* — sweating does NOT rule out heatstroke)\n"
+        "• Rapid breathing and fast heart rate\n\n"
+        "🚑 **Immediate Emergency Response:**\n"
+        "1. **CALL FOR HELP IMMEDIATELY:**\n"
+        "   • **National Emergency:** 911\n"
+        "   • **Padre Garcia MDRRMO:** (043) 515-7424 | 0977-801-1557\n"
+        "   • **Padre Garcia RHU:** (043) 515-9209\n"
+        "2. **Move the person to a cool, shaded area** or indoors with air conditioning.\n"
+        "3. **Remove excess clothing.**\n"
+        "4. **Cool them rapidly:** Sponge the body with cool water, apply wet cloths to neck, armpits, and groin, and fan vigorously. Use safe cold-water immersion if available.\n"
+        "5. ⛔ **DO NOT GIVE FLUIDS OR FOOD** if the person is confused, unconscious, having seizures, or unable to swallow safely (severe choking risk).\n"
+        "6. Continue active cooling until professional medical responders arrive.\n\n"
+        "⚠️ *Medical Disclaimer: ReadyKomunidad provides first-aid awareness and does not replace professional emergency medical care.*",
+
+        "🚨 **KRITIKAL NA MEDICAL EMERGENCY: Heatstroke**\n\n"
+        "**Nakalalason at banta sa buhay ang heatstroke.** Huwag itong ituring na karaniwang pagod o hayaang magpahinga lang sa bahay. Kailangan ng agarang medikal na tulong.\n\n"
+        "⚠️ **Mga Babalang Senyales:**\n"
+        "• **Pagkalito, pagka-lito sa sarili, o kakaibang pag-uugali**\n"
+        "• **Kombulsyon (seizures) o panginginig**\n"
+        "• **Pagkawala ng malay o pagkahimatay**\n"
+        "• **Napakainit na balat** (Tandaan: *Maaaring nagpapawis pa rin ang pasyente* — ang pagpapawis ay HINDI patunay na walang heatstroke)\n"
+        "• Mabilis na paghinga at mabilis na tibok ng puso\n\n"
+        "🚑 **Mga Hakbang sa Agarang First Aid:**\n"
+        "1. **TUMAWAG AGAD NG TULONG:**\n"
+        "   • **National Emergency Hotline:** 911\n"
+        "   • **Padre Garcia MDRRMO:** (043) 515-7424 | 0977-801-1557\n"
+        "   • **Padre Garcia RHU:** (043) 515-9209\n"
+        "2. **Ilipat agad ang tao sa malamig na lugar** o may lilim/aircon.\n"
+        "3. **Tanggalin ang makakapal na damit.**\n"
+        "4. **Palamigin agad ang katawan:** Punasan ng malamig na tubig, lagyan ng basang tela sa leeg, kili-kili, at singit, at paypayan nang mabilis.\n"
+        "5. ⛔ **HUWAG MAGBIGAY NG TUBIG O PAGKAIN** kung ang tao ay nalilito, walang malay, nangingisay, o hindi kayang lumunok (panganib ng mabulunan).\n"
+        "6. Ipagpatuloy ang pagpapalamig habang hinihintay ang mga rumespondeng doktor o ambulansya.\n\n"
+        "⚠️ *Paalalang Medikal: Ang ReadyKomunidad ay nagbibigay ng first-aid awareness at hindi pamalit sa propesyonal na serbisyong medikal.*"
+    )
+
+def handle_heat_exhaustion_first_aid():
+    conversation_state["last_topic"] = "heat_exhaustion_action"
+    return L(
+        "🌡️ **Heat Exhaustion: Warning Signs & First Aid**\n\n"
+        "Heat exhaustion is a serious heat-related illness. If not managed quickly, it can rapidly escalate into life-threatening **heatstroke**.\n\n"
+        "⚠️ **Possible Signs:**\n"
+        "• Heavy, excessive sweating\n"
+        "• Weakness, tiredness, and dizziness\n"
+        "• Headache\n"
+        "• Nausea or vomiting\n"
+        "• Muscle cramps\n"
+        "• Cool, pale, or clammy skin\n\n"
+        "🩹 **Basic First Aid Steps:**\n"
+        "1. **Move to shade:** Bring the person to a cool, shaded area or an air-conditioned room.\n"
+        "2. **Rest & loosen clothes:** Have them lie down and loosen tight or unnecessary clothing.\n"
+        "3. **Active cooling:** Apply cool, wet cloths to the skin, spray cool water, and use a fan.\n"
+        "4. **Rehydrate carefully:** If the person is **fully awake and able to swallow**, let them slowly sip cool water or Oral Rehydration Solution (ORS).\n"
+        "5. ⛔ **Never give liquids** if the person is confused, vomiting, or losing consciousness.\n\n"
+        "🚨 **When to Seek Immediate Medical Help:**\n"
+        "• Symptoms do not improve after **30 minutes**\n"
+        "• The person starts vomiting repeatedly\n"
+        "• The person becomes confused, develops seizures, or loses consciousness (this indicates **heatstroke** — call 911 immediately)\n\n"
+        "⚠️ *Medical Disclaimer: ReadyKomunidad first-aid steps do not replace professional medical diagnosis and care.*",
+
+        "🌡️ **Heat Exhaustion: Mga Senyales at First Aid**\n\n"
+        "Ang heat exhaustion ay isang seryosong kondisyon dulot ng matinding init. Kapag napabayaan, maaari itong mabilis na lumala at maging nakamamatay na **heatstroke**.\n\n"
+        "⚠️ **Mga Posibleng Senyales:**\n"
+        "• Malakas at sobrang pagpapawis\n"
+        "• Panghihina, labis na pagod, at pagkahilo\n"
+        "• Pananakit ng ulo\n"
+        "• Pagduduwal o pagsusuka\n"
+        "• Pamumulikat ng kalamnan (muscle cramps)\n"
+        "• Malamig, maputla, o malagkit na balat\n\n"
+        "🩹 **Mga Hakbang sa First Aid:**\n"
+        "1. **Pumunta sa lilim:** Ilipat ang tao sa malamig na lugar, may lilim, o may electric fan.\n"
+        "2. **Pahinga at luwagan ang damit:** Pahigain at luwagan ang mahigpit o makapal na kasuotan.\n"
+        "3. **Palamigin ang katawan:** Maglagay ng basang tela sa noo, leeg, at kilikili, at paypayan.\n"
+        "4. **Painumin nang dahan-dahan:** Kung ang tao ay **gising na gising at kayang lumunok**, painumin ng pakonti-konting malamig na tubig o Oral Rehydration Solution (ORS).\n"
+        "5. ⛔ **Huwag piliting painumin** kung ang tao ay nalilito, nagsusuka, o nawawalan ng malay.\n\n"
+        "🚨 **Kailan Dapat Magpatingin sa Doktor:**\n"
+        "• Hindi bumubuti ang pakiramdam pagkatapos ng **30 minuto**\n"
+        "• Patuloy ang pagsusuka\n"
+        "• Nagsimulang maguluhan sa pag-iisip o nawalan ng malay (senyales na ito ng **heatstroke** — tumawag agad sa 911 o RHU)\n\n"
+        "⚠️ *Paalalang Medikal: Ang gabay na ito ay first-aid awareness lamang at hindi pamalit sa pagsusuri ng doktor.*"
+    )
+
+def handle_dehydration_first_aid():
+    conversation_state["last_topic"] = "dehydration_first_aid"
+    return L(
+        "💧 **Dehydration: Warning Signs & First Aid**\n\n"
+        "Dehydration occurs when the body loses more fluids than it takes in, commonly triggered by extreme heat, heavy sweating, vomiting, or diarrhea during El Niño months.\n\n"
+        "⚠️ **Possible Signs:**\n"
+        "• Extreme thirst and dry mouth\n"
+        "• Dark yellow, strong-smelling urine\n"
+        "• Reduced urination (fewer trips to the bathroom)\n"
+        "• Fatigue, dry skin, and dizziness upon standing\n\n"
+        "🩹 **Basic First Aid Steps:**\n"
+        "1. **Rest away from heat:** Move the person out of direct sunlight and let them rest in a cool area.\n"
+        "2. **Drink in small sips:** Give small, frequent sips of clean drinking water.\n"
+        "3. **Use ORS (Oral Rehydration Salts):** If fluid was lost through heavy sweating, vomiting, or diarrhea, give properly prepared ORS to replace vital electrolytes.\n"
+        "4. **Monitor recovery:** Check urine color and frequency (pale or clear urine means rehydration is succeeding).\n"
+        "5. ⛔ **Never give drinks** to anyone who is unconscious, drowsy, or having difficulty swallowing.\n\n"
+        "🚨 **When to Seek Immediate Medical Help:**\n"
+        "• Little or no urine for more than 8 hours\n"
+        "• Inability to keep fluids down due to continuous vomiting\n"
+        "• Lethargy, confusion, fainting, or rapid pulse\n"
+        "• Children under 5 or elderly individuals showing sunken eyes or extreme weakness\n\n"
+        "⚠️ *Medical Disclaimer: ReadyKomunidad guidance is for informational first aid and does not substitute for clinical medical evaluation.*",
+
+        "💧 **Dehydration: Mga Senyales at First Aid**\n\n"
+        "Ang dehydration ay kakulangan ng tubig sa katawan. Madalas itong mangyari tuwing tagtuyot o El Niño dahil sa sobrang init, labis na pagpapawis, pagtatae, o pagsusuka.\n\n"
+        "⚠️ **Mga Posibleng Senyales:**\n"
+        "• Matinding pagkauhaw at tuyong bibig\n"
+        "• Matingkad na dilaw na ihi na may matapang na amoy\n"
+        "• Madalang na pag-ihi (o hindi umiihi nang maraming oras)\n"
+        "• Panghihina, tuyong balat, at pagkahilo kapag tumatayo\n\n"
+        "🩹 **Mga Hakbang sa First Aid:**\n"
+        "1. **Lumayo sa init:** Dalhin ang tao sa malilim at malamig na lugar.\n"
+        "2. **Painumin nang paunti-unti:** Magbigay ng pakonti-konti ngunit madalas na higop ng malinis na tubig.\n"
+        "3. **Gumamit ng ORS (Oral Rehydration Solution):** Kung marami ang pawis o nagtae, magtimpla ng ORS upang mapalitan ang nawalang electrolytes at asin sa katawan.\n"
+        "4. **Bantayan ang paggaling:** Tignan ang kulay ng ihi (maliwanag na dilaw o malinaw na ihi ay patunay na nagiging maayos na ang hydration).\n"
+        "5. ⛔ **Huwag magpainom** kung ang tao ay tuliro, walang malay, o hindi makalunok nang maayos.\n\n"
+        "🚨 **Kailan Dapat Dalhin sa Ospital o RHU:**\n"
+        "• Halos walang ihi sa loob ng 8 oras\n"
+        "• Hindi makainom dahil patuloy na nagsusuka\n"
+        "• Pagkahimatay, pagkalito, o mabilis na tibok ng puso\n"
+        "• Mga bata o matatanda na lumulubog ang mata at labis na nanghihina\n\n"
+        "⚠️ *Paalalang Medikal: Ang first-aid na ito ay gabay lamang at hindi pamalit sa lunas ng lisensyadong manggagamot.*"
+    )
 
 def handle_stations_overview():
     conversation_state["last_topic"] = "stations_overview"
@@ -279,12 +658,13 @@ def handle_ml_forecast_query(month_num, target_year=None):
             f"{future_note}"
         )
     return (
-        f"🤖 **AI Rainfall Prediction{year_str}:**\n"
-        f"Based on historical patterns for **{m_name}**:\n"
+        f"🤖 **AI Rainfall Prediction{year_str}:**\n\n"
+        f"Based on historical patterns for **{m_name}**:\n\n"
         f"• **Predicted Rainfall for Padre Garcia:** **{predicted_rain:.1f} mm**\n"
         f"*(Uses regional station data and ONI indicators as inputs)*"
         f"{future_note}"
     )
+
 
     #EMOJI MIRRORING FUNCTIONS
 import unicodedata
@@ -357,11 +737,9 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
     Renders an interactive, modern visual card matching the reference design:
     - Title with rain emoji + Year
     - Tag badge: 'Historical Weather Records · Padre Garcia, Batangas'
-    - Description subtitle
-    - Card container with title, subtitle, column icon
-    - Scaled SVG Bar Chart with 12 monthly bars (Jan–Dec), Y-axis dashed lines, and hover tooltips
-    - 2x2 grid of metric cards (Annual total, Monthly average, Wettest month, Driest month)
-    - Optional climate footnote (ENSO phase & average temperature)
+    - Responsive SVG Bar Chart with 12 monthly bars & hover tooltips
+    - 2x2 metric cards (Annual total, Monthly average, Wettest month, Driest month)
+    - Simple community observation & El Niño preparedness section
     """
     months_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     monthly_vals = []
@@ -375,7 +753,6 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
         monthly_vals.append(val)
 
     annual_total = sum(monthly_vals)
-    months_count = max(len([v for v in monthly_vals if v > 0]), 1)
     monthly_avg = annual_total / 12.0
 
     # Wettest & driest months
@@ -384,16 +761,12 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
     max_val = monthly_vals[max_idx]
     wettest_name = MONTH_NAMES.get(max_idx + 1, months_abbr[max_idx])
 
-    # Find the driest month (prefer non-zero if available)
     non_zero = s_vals[s_vals > 0]
-    if not non_zero.empty:
-        min_idx = int(non_zero.idxmin())
-    else:
-        min_idx = int(s_vals.idxmin())
+    min_idx = int(non_zero.idxmin()) if not non_zero.empty else int(s_vals.idxmin())
     min_val = monthly_vals[min_idx]
     driest_name = MONTH_NAMES.get(min_idx + 1, months_abbr[min_idx])
 
-    # Compute clean step values for Y-axis (top rounded to clean bounds)
+    # Y-axis bounds
     peak = max(max_val, 10.0)
     top_limit = peak * 1.15
     if top_limit <= 100:
@@ -411,7 +784,7 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
 
     y_levels = [top_y, step * 3, step * 2, step * 1, 0]
 
-    # SVG layout dimensions
+    # SVG layout
     chart_height = 200
     chart_width = 540
     margin_left = 65
@@ -460,7 +833,6 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
                   class="fill-slate-400 dark:fill-slate-500 text-[10px]">{int(lvl)} mm</text>
         """)
 
-    # Localized copy
     badge_text = "Historical Weather Records · Padre Garcia, Batangas"
     intro_text = (
         f"Here is an illustrative monthly rainfall record for <strong>{year_num}</strong> in Padre Garcia, Batangas."
@@ -476,14 +848,81 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
     lbl_wettest = "Wettest month" if not is_tl else "Pinakabasang Buwan"
     lbl_driest = "Driest month" if not is_tl else "Pinakatuyong Buwan"
 
+    # Context tag
     enso_block = ""
     if enso_phase_label:
         lbl_climate = "Climate Context:" if not is_tl else "Konteksto ng Klima:"
         lbl_temp = f" • Avg Temp: <strong>{avg_temp:.1f}°C</strong>" if avg_temp else ""
         enso_block = f"""
-        <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>{lbl_climate} <strong>{enso_phase_label}</strong>{lbl_temp}</span>
             <span class="text-[11px] text-slate-400">Padre Garcia Station</span>
+        </div>
+        """
+
+
+    if not is_tl:
+        observation_block = f"""
+        <!-- Simple Community Observation & Preparedness -->
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-3 text-xs leading-relaxed">
+            <div>
+                <h6 class="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs sm:text-sm mb-1">
+                    <span>🔍</span><span>What can we observe?</span>
+                </h6>
+                <p class="text-slate-600 dark:text-slate-300">
+                    Based on the historical records for {year_num}, <strong>{driest_name}</strong> had the lowest rainfall ({min_val:.0f} mm), while <strong>{wettest_name}</strong> recorded the highest ({max_val:.0f} mm). Rainfall varied throughout the year, with drier conditions in the earlier months and heavier rainfall during the middle and latter parts of the year.
+                </p>
+            </div>
+
+            <div>
+                <h6 class="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs sm:text-sm mb-1">
+                    <span>☀️</span><span>What does this mean for El Niño preparedness?</span>
+                </h6>
+                <p class="text-slate-600 dark:text-slate-300">
+                    Months with lower rainfall remind us of the importance of conserving water and preparing for possible dry conditions. However, these records alone describe historical rainfall patterns and do not confirm that El Niño occurred or caused the changes in rainfall.
+                </p>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200/70 dark:border-slate-800">
+                <span class="font-semibold text-slate-800 dark:text-slate-200 block mb-1">💡 Stay prepared in Padre Garcia:</span>
+                <ul class="space-y-0.5 text-slate-600 dark:text-slate-300 text-[11px]">
+                    <li>• Save and store clean water whenever possible.</li>
+                    <li>• Avoid unnecessary water consumption and fix leaking pipes.</li>
+                    <li>• Follow official PAGASA weather updates and local MDRRMO advisories.</li>
+                </ul>
+            </div>
+        </div>
+        """
+    else:
+        observation_block = f"""
+        <!-- Simple Community Observation & Preparedness -->
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-3 text-xs leading-relaxed">
+            <div>
+                <h6 class="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs sm:text-sm mb-1">
+                    <span>🔍</span><span>Ano ang mapapansin natin?</span>
+                </h6>
+                <p class="text-slate-600 dark:text-slate-300">
+                    Batay sa mga tala noong {year_num}, ang buwan ng <strong>{driest_name}</strong> ang may pinakamababang ulan ({min_val:.0f} mm), habang ang <strong>{wettest_name}</strong> naman ang nagtala ng pinakamataas ({max_val:.0f} mm). Nag-iiba-iba ang ulan sa buong taon, kung saan mas tuyo ang mga unang buwan at mas marami ang ulan bandang kalagitnaan hanggang huling bahagi ng taon.
+                </p>
+            </div>
+
+            <div>
+                <h6 class="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs sm:text-sm mb-1">
+                    <span>☀️</span><span>Ano ang ibig sabihin nito para sa paghahanda sa El Niño?</span>
+                </h6>
+                <p class="text-slate-600 dark:text-slate-300">
+                    Ang mga buwan na may mababang ulan ay nagpapaalala sa atin ng kahalagahan ng pagtitipid ng tubig at paghahanda para sa posibleng tagtuyot. Gayunpaman, ang mga rekord na ito ay naglalarawan lamang ng ulan at hindi awtomatikong nagpapatunay na El Niño ang sanhi.
+                </p>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200/70 dark:border-slate-800">
+                <span class="font-semibold text-slate-800 dark:text-slate-200 block mb-1">💡 Maging laging handa sa Padre Garcia:</span>
+                <ul class="space-y-0.5 text-slate-600 dark:text-slate-300 text-[11px]">
+                    <li>• Mag-ipon at magtipid ng malinis na tubig sa ligtas at may takip na lalagyan.</li>
+                    <li>• Iwasan ang pag-aaksaya ng tubig at ayusin ang tumutulong gripo.</li>
+                    <li>• Subaybayan ang mga opisyal na weather advisory ng PAGASA at lokal na MDRRMO.</li>
+                </ul>
+            </div>
         </div>
         """
 
@@ -550,9 +989,11 @@ def render_rainfall_chart_card(year_num, year_data, is_tl=False, enso_phase_labe
         </div>
         {enso_block}
     </div>
+
+    <!-- Community Observation & Preparedness Box -->
+    {observation_block}
 </div>
 """
-
 
 # ==========================================
 # FULL HANDLE_YEAR_QUERY IMPLEMENTATION
@@ -605,15 +1046,18 @@ def handle_year_query(year, padre_garcia_only=False, is_rain_specific=False):
                         f"*{target_year} ay isang future year — wala pang historical records. "
                         f"Narito ang ML-based na monthly rainfall predictions para sa Padre Garcia, Batangas:*\n\n"
                         + "\n".join(monthly_preds) +
-                        f"\n\n📊 **Total Predicted Rainfall:** ~{total_pred:.1f} mm"
-                        f"\n\n💡 *Para sa isang partikular na buwan, subukan: 'Hulaan ang ulan para sa May {target_year}'*"
+                        f"\n\n**Total Predicted Rainfall:** ~{total_pred:.1f} mm\n\n"
+                        f"**Disclaimer**: *Ang mga ito ay machine-learning-based estimates na ginawa gamit ang historical weather data. Maaaring mag-iba ang aktwal na ulan mula sa predicted values dahil sa pagbabago ng panahon at klima. Ang mga estimate na ito ay hindi opisyal na PAGASA forecasts.*\n\n"
+                        f"\n\n💡 *Para sa isang partikular na buwan, subukan: 'i-predict ang ulan para sa May {target_year}'*"
                     )
                 return (
                     f"🔮 **AI Rainfall Forecast for {target_year}:**\n"
                     f"*{target_year} is a future year — no historical records exist yet. "
                     f"Here are ML-based monthly rainfall predictions for Padre Garcia, Batangas:*\n\n"
                     + "\n".join(monthly_preds) +
-                    f"\n\n📊 **Total Predicted Rainfall:** ~{total_pred:.1f} mm"
+                    f"\n\n **Total Predicted Rainfall:** ~{total_pred:.1f} mm\n\n"
+                    f"**Disclaimer**: *These are machine-learning-based estimates generated using historical weather data. Actual rainfall may differ from the predicted values due to changing weather and climate conditions. These estimates are not official PAGASA forecasts.*\n\n"
+
                     f"\n\n💡 *For a specific month, try: 'Predict rain for May {target_year}'*"
                 )
 
@@ -817,9 +1261,250 @@ def handle_month_year_query(month_num, year_num, padre_garcia_only=False):
         f"📍 **Quezon / Bicol Region:** {row['rain_station2']:.1f} mm | {row['temp_station2']:.1f}°C\n"
         f"📍 **Basco, Batanes:** {row[r3_col]:.1f} mm | {row[t3_col]:.1f}°C"
     )
+# ==========================================
+# MODERN COMPARISON CHART & CARD GENERATOR
+# ==========================================
+
+def render_comparison_chart_card(year1, year2, y1_data, y2_data, is_tl=False, incomplete_note=""):
+    """
+    Renders an interactive, side-by-side comparison bar chart card for two years.
+    Uses blue bars for Year 1 and amber/orange bars for Year 2.
+    """
+    months_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
+    vals1 = []
+    vals2 = []
+    for m in range(1, 13):
+        r1 = y1_data[y1_data['Month'] == m]
+        r2 = y2_data[y2_data['Month'] == m]
+        vals1.append(float(r1['rain_batangas'].values[0]) if not r1.empty and pd.notna(r1['rain_batangas'].values[0]) else 0.0)
+        vals2.append(float(r2['rain_batangas'].values[0]) if not r2.empty and pd.notna(r2['rain_batangas'].values[0]) else 0.0)
+
+    total1 = sum(vals1)
+    total2 = sum(vals2)
+    avg_temp1 = y1_data['temp_batangas'].mean()
+    avg_temp2 = y2_data['temp_batangas'].mean()
+
+    # ENSO phase labels
+    p1 = list(y1_data['ens_phase'].dropna().unique())
+    p2 = list(y2_data['ens_phase'].dropna().unique())
+    p1_labels = ', '.join(label_phase(p) for p in p1) if p1 else "Neutral 🟡"
+    p2_labels = ', '.join(label_phase(p) for p in p2) if p2 else "Neutral 🟡"
+
+    # Difference calculation
+    diff = abs(total1 - total2)
+    wetter_year = year1 if total1 > total2 else year2
+    drier_year = year2 if total1 > total2 else year1
+    diff_pct = (diff / min(total1, total2) * 100) if min(total1, total2) > 0 else 0
+
+    # Chart Y-axis scaling
+    peak = max(max(vals1), max(vals2), 10.0)
+    top_limit = peak * 1.15
+    if top_limit <= 100:
+        step = 25
+    elif top_limit <= 200:
+        step = 45
+    elif top_limit <= 400:
+        step = 80
+    else:
+        step = int(top_limit / 4 / 25) * 25 or 50
+
+    top_y = step * 4
+    if top_y < peak:
+        top_y = step * 5
+
+    y_levels = [top_y, step * 3, step * 2, step * 1, 0]
+
+    # SVG layout specs
+    chart_height = 210
+    chart_width = 560
+    margin_left = 60
+    margin_right = 20
+    plot_width = chart_width - margin_left - margin_right
+    slot_width = plot_width / 12
+    bar_width = 9  # Two bars side by side per month
+
+    bars_svg = []
+    labels_svg = []
+
+    for i, (v1, v2, abbr) in enumerate(zip(vals1, vals2, months_abbr)):
+        x_slot = margin_left + (i * slot_width)
+        
+        # Bar 1 (Year 1 - Blue)
+        b1_x = x_slot + (slot_width - (bar_width * 2 + 3)) / 2
+        b1_h = (v1 / top_y) * (chart_height - 45) if top_y > 0 else 0
+        b1_y = (chart_height - 30) - b1_h
+
+        # Bar 2 (Year 2 - Amber)
+        b2_x = b1_x + bar_width + 3
+        b2_h = (v2 / top_y) * (chart_height - 45) if top_y > 0 else 0
+        b2_y = (chart_height - 30) - b2_h
+
+        tooltip_x = b1_x + bar_width
+        tooltip_y = max(min(b1_y, b2_y) - 34, 4)
+
+        bars_svg.append(f"""
+            <g class="bar-group group cursor-pointer">
+                <!-- Bar 1 ({year1}) -->
+                <rect x="{b1_x:.1f}" y="{b1_y:.1f}" width="{bar_width}" height="{max(b1_h, 3):.1f}" rx="3"
+                      class="fill-blue-500 hover:fill-blue-600 dark:fill-blue-400 transition-all duration-150" />
+                <!-- Bar 2 ({year2}) -->
+                <rect x="{b2_x:.1f}" y="{b2_y:.1f}" width="{bar_width}" height="{max(b2_h, 3):.1f}" rx="3"
+                      class="fill-amber-500 hover:fill-amber-600 dark:fill-amber-400 transition-all duration-150" />
+                <!-- Hover Dual Tooltip -->
+                <g class="bar-tooltip opacity-0 transition-all duration-150 pointer-events-none">
+                    <rect x="{tooltip_x - 45:.1f}" y="{tooltip_y:.1f}" width="90" height="28" rx="6"
+                          class="fill-slate-900 dark:fill-slate-100 shadow-md" />
+                    <text x="{tooltip_x:.1f}" y="{tooltip_y + 12:.1f}" text-anchor="middle"
+                          class="fill-blue-300 dark:fill-blue-600 text-[9px] font-semibold">{year1}: {v1:.0f} mm</text>
+                    <text x="{tooltip_x:.1f}" y="{tooltip_y + 23:.1f}" text-anchor="middle"
+                          class="fill-amber-300 dark:fill-amber-600 text-[9px] font-semibold">{year2}: {v2:.0f} mm</text>
+                </g>
+            </g>
+        """)
+
+        labels_svg.append(f"""
+            <text x="{b1_x + bar_width + 1.5:.1f}" y="{chart_height - 10}" text-anchor="middle"
+                  class="fill-slate-500 dark:fill-slate-400 text-[10px] font-medium">{abbr}</text>
+        """)
+
+    grid_svg = []
+    for lvl in y_levels:
+        y_pos = 14 + (chart_height - 44) * (1.0 - (lvl / top_y)) if top_y > 0 else 14
+        grid_svg.append(f"""
+            <line x1="{margin_left}" y1="{y_pos:.1f}" x2="{chart_width - margin_right}" y2="{y_pos:.1f}"
+                  stroke="currentColor" stroke-dasharray="3,3" class="stroke-slate-200 dark:stroke-slate-800" stroke-width="1"/>
+            <text x="{margin_left - 8}" y="{y_pos + 3.5:.1f}" text-anchor="end"
+                  class="fill-slate-400 dark:fill-slate-500 text-[10px]">{int(lvl)} mm</text>
+        """)
+
+    # Localized text strings
+    badge_text = "Historical Comparison · Padre Garcia, Batangas"
+    header_title = f"Rainfall Comparison — {year1} vs {year2}" if not is_tl else f"Paghahambing ng Ulan — {year1} vs {year2}"
+    chart_title = f"Monthly Rainfall Comparison ({year1} vs {year2})" if not is_tl else f"Buwanang Paghahambing ng Ulan ({year1} vs {year2})"
+    chart_subtitle = "Hover over bars to see monthly measurements side-by-side." if not is_tl else "Itapat ang cursor sa bar upang makita ang buwanang sukat."
+
+    summary_headline = (
+        f"In Padre Garcia, <strong>{wetter_year}</strong> recorded <strong>{diff:.1f} mm</strong> (+{diff_pct:.0f}%) more rainfall than {drier_year}."
+        if not is_tl else
+        f"Sa Padre Garcia, ang taong <strong>{wetter_year}</strong> ay nagtala ng <strong>{diff:.1f} mm</strong> (+{diff_pct:.0f}%) mas maraming ulan kaysa sa {drier_year}."
+    )
+
+    verdict_badge = (
+        f"📈 {wetter_year} was wetter by {diff:.0f} mm" if not is_tl else f"📈 Mas maulan noong {wetter_year} ng {diff:.0f} mm"
+    )
+
+    note_html = f"<div class='p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs mb-2 border border-amber-200/60 dark:border-amber-800/60'>{incomplete_note}</div>" if incomplete_note else ""
+
+    return f"""<!-- RAINFALL_CARD -->
+<div class="w-full my-2 space-y-4 animate-fade-in font-sans">
+    {note_html}
+    <!-- Header -->
+    <div>
+        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+            <!-- <span class="text-base">⚖️</span> -->
+            <span class="font-semibold text-slate-900 dark:text-white text-base">{header_title}</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                {badge_text}
+            </span>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{summary_headline}</p>
+    </div>
+
+    <!-- Chart Container Card -->
+    <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <div>
+                <h4 class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{chart_title}</h4>
+                <p class="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-0.5">{chart_subtitle}</p>
+            </div>
+            <!-- Legend -->
+            <div class="flex items-center gap-3 text-xs self-start sm:self-auto pt-1">
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="w-3 h-3 rounded-xs bg-blue-500 inline-block"></span>
+                    <span>{year1}</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="w-3 h-3 rounded-xs bg-amber-500 inline-block"></span>
+                    <span>{year2}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- SVG Grouped Bar Chart -->
+        <div class="w-full overflow-x-auto">
+            <svg viewBox="0 0 {chart_width} {chart_height}" class="w-full h-52 sm:h-60 select-none">
+                {''.join(grid_svg)}
+                {''.join(bars_svg)}
+                {''.join(labels_svg)}
+            </svg>
+        </div>
+    </div>
+
+    <!-- 2-Column Side-by-Side Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <!-- Year 1 Card -->
+        <div class="p-4 rounded-xl bg-white dark:bg-slate-900/90 border border-blue-200/80 dark:border-blue-900/50 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                    <span>{year1} Summary</span>
+                </span>
+                <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{p1_labels}</span>
+            </div>
+            <div class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Total Rainfall:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{total1:.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Monthly Average:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{(total1 / 12.0):.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span class="text-slate-400">Average Temp:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{avg_temp1:.1f}°C</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year 2 Card -->
+        <div class="p-4 rounded-xl bg-white dark:bg-slate-900/90 border border-amber-200/80 dark:border-amber-900/50 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    <span>{year2} Summary</span>
+                </span>
+                <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{p2_labels}</span>
+            </div>
+            <div class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Total Rainfall:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{total2:.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/60">
+                    <span class="text-slate-400">Monthly Average:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{(total2 / 12.0):.1f} mm</strong>
+                </div>
+                <div class="flex justify-between py-0.5">
+                    <span class="text-slate-400">Average Temp:</span>
+                    <strong class="text-slate-900 dark:text-white font-semibold">{avg_temp2:.1f}°C</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Comparative Verdict -->
+    <div class="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs flex-wrap gap-2">
+        <span class="font-medium text-slate-700 dark:text-slate-200">{verdict_badge}</span>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">Difference: <strong>{diff:.1f} mm</strong></span>
+    </div>
+</div>
+"""
 
 def handle_year_comparison(year1, year2, padre_garcia_only=False):
     if master_df is None: return "Dataset not loaded."
+    
     y1_data = master_df[master_df['Year'] == int(year1)]
     y2_data = master_df[master_df['Year'] == int(year2)]
 
@@ -830,145 +1515,106 @@ def handle_year_comparison(year1, year2, padre_garcia_only=False):
         if future_years:
             yr_list = ', '.join(future_years)
             return L(
-                f"I can only compare years with historical records ({min_year}–{max_year}). "
-                f"**{yr_list}** has no recorded data yet.\n\n"
-                f"💡 *Try asking for an ML rainfall prediction instead, e.g. 'Predict rain for May {future_years[0]}'*",
-                f"Maari ko lamang ihambing ang mga taon na may historical records ({min_year}–{max_year}). "
-                f"Wala pang recorded data ang **{yr_list}**.\n\n"
-                f"💡 *Subukan na humingi ng ML rainfall prediction sa halip, hal. 'Hulaan ang ulan para sa May {future_years[0]}'*"
+                f"I can only compare years with historical records ({min_year}–{max_year}). **{yr_list}** has no recorded data yet.",
+                f"Maari ko lamang ihambing ang mga taon na may historical records ({min_year}–{max_year}). Wala pang recorded data ang **{yr_list}**."
             )
         return L(
             f"I can only compare years between {min_year} and {max_year}. Please check your requested years!",
             f"Maari ko lamang ihambing ang mga taon mula {min_year} hanggang {max_year}. Pakiusap suriin ang iyong mga hininging taon!"
         )
 
-    # Check for incomplete year (less than 12 months)
+    # Check for incomplete months
     max_months = master_df.groupby('Year')['Month'].count().max()
-    y1_incomplete = len(y1_data) < max_months
-    y2_incomplete = len(y2_data) < max_months
-    incomplete_note = ""
-    if conversation_state.get("lang") == "tl":
-        if y1_incomplete:
-            incomplete_note += f"⚠️ *Ang {year1} ay may {len(y1_data)} months lamang na data — maaaring hindi kumpleto ang figures.*\n"
-        if y2_incomplete:
-            incomplete_note += f"⚠️ *Ang {year2} ay may {len(y2_data)} months lamang na data — maaaring hindi kumpleto ang figures.*\n"
-    else:
-        if y1_incomplete:
-            incomplete_note += f"⚠️ *{year1} has only {len(y1_data)} months of data — figures may be partial.*\n"
-        if y2_incomplete:
-            incomplete_note += f"⚠️ *{year2} has only {len(y2_data)} months of data — figures may be partial.*\n"
+    incomplete_notes = []
+    if len(y1_data) < max_months:
+        incomplete_notes.append(f"Year {year1} has only {len(y1_data)} recorded months.")
+    if len(y2_data) < max_months:
+        incomplete_notes.append(f"Year {year2} has only {len(y2_data)} recorded months.")
+    
+    note_str = " ".join(incomplete_notes)
+    conversation_state["last_topic"] = "year_summary"
+    is_tl = conversation_state.get("lang") == "tl"
 
-    # Station 1 — Padre Garcia
-    r1_s1 = y1_data['rain_batangas'].sum()
-    r2_s1 = y2_data['rain_batangas'].sum()
-    t1_s1 = y1_data['temp_batangas'].mean()
-    t2_s1 = y2_data['temp_batangas'].mean()
+    # Check if Station Comparison Mode is active or explicitly asked
+    show_all_stations = conversation_state.get("station_mode", False) and not padre_garcia_only
 
-    # Station 2 — Quezon/Bicol
+    # 1. Main modern card (Padre Garcia)
+    main_card = render_comparison_chart_card(
+        year1=str(year1),
+        year2=str(year2),
+        y1_data=y1_data,
+        y2_data=y2_data,
+        is_tl=is_tl,
+        incomplete_note=note_str
+    )
+
+    # 2. If Station Comparison Mode is OFF, add an inviting tip chip
+    if not show_all_stations:
+        tip_text = (
+            "<div class='mt-2 text-center'>"
+            "<button onclick=\"sendQuickPrompt('Turn on station comparison mode')\" class='text-[11px] text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400 transition-colors inline-flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60'>"
+            "<i class='fa-solid fa-arrows-split-up-and-left text-[10px]'></i>"
+            "<span>Want to compare with Quezon/Bicol and Basco? <strong>Turn on station comparison mode &rarr;</strong></span>"
+            "</button></div>"
+            if not is_tl else
+            "<div class='mt-2 text-center'>"
+            "<button onclick=\"sendQuickPrompt('Turn on station comparison mode')\" class='text-[11px] text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400 transition-colors inline-flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60'>"
+            "<i class='fa-solid fa-arrows-split-up-and-left text-[10px]'></i>"
+            "<span>Gusto mo bang ihambing sa Quezon/Bicol at Basco? <strong>I-on ang station comparison mode &rarr;</strong></span>"
+            "</button></div>"
+        )
+        return main_card + tip_text
+
+    # 3. If Station Comparison Mode is ON: Append Quezon and Basco comparison metrics!
     r3_col = 'rain_basco' if 'rain_basco' in master_df.columns else 'rain_station3'
     t3_col = 'temp_basco' if 'temp_basco' in master_df.columns else 'temp_station3'
+
+    # Station 2 (Quezon/Bicol)
     r1_s2 = y1_data['rain_station2'].sum()
     r2_s2 = y2_data['rain_station2'].sum()
     t1_s2 = y1_data['temp_station2'].mean()
     t2_s2 = y2_data['temp_station2'].mean()
 
-    # Station 3 — Basco
+    # Station 3 (Basco)
     r1_s3 = y1_data[r3_col].sum()
     r2_s3 = y2_data[r3_col].sum()
     t1_s3 = y1_data[t3_col].mean()
     t2_s3 = y2_data[t3_col].mean()
 
-    # ENSO — use ONI-based label if phase codes are missing
-    avg_oni1 = y1_data['oni_value'].mean()
-    avg_oni2 = y2_data['oni_value'].mean()
-    p1 = list(y1_data['ens_phase'].dropna().unique())
-    p2 = list(y2_data['ens_phase'].dropna().unique())
-    p1_labels = ', '.join(label_phase(p) for p in p1) if p1 else label_oni(avg_oni1).split(' — ')[-1]
-    p2_labels = ', '.join(label_phase(p) for p in p2) if p2 else label_oni(avg_oni2).split(' — ')[-1]
+    regional_badge = " 3-Station Regional Comparison" if not is_tl else "3-Station Regional Comparison"
+    s2_label = "Quezon / Bicol Region"
+    s3_label = "Basco, Batanes"
 
-    # Context vs yearly averages for all 3 stations
-    avg_s1 = master_df.groupby('Year')['rain_batangas'].sum().mean()
-    avg_s2 = master_df.groupby('Year')['rain_station2'].sum().mean()
-    avg_s3 = master_df.groupby('Year')[r3_col].sum().mean()
+    station_expansion = f"""
+    <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5 animate-fade-in">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-tower-broadcast text-blue-500"></i> {regional_badge}</span>
+            <button onclick="sendQuickPrompt('Turn off station comparison mode')" class="text-[10px] text-slate-400 hover:text-rose-500">(Turn off)</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <!-- Quezon -->
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                <span class="font-medium text-slate-900 dark:text-white block mb-1">📍 {s2_label}</span>
+                <div class="space-y-0.5 text-slate-600 dark:text-slate-300">
+                    <div>• <strong>{year1}:</strong> {r1_s2:.1f} mm | {t1_s2:.1f}°C</div>
+                    <div>• <strong>{year2}:</strong> {r2_s2:.1f} mm | {t2_s2:.1f}°C</div>
+                    <div class="text-[11px] text-slate-400 pt-1">Diff: {abs(r1_s2 - r2_s2):.1f} mm ({year1 if r1_s2 > r2_s2 else year2} was wetter)</div>
+                </div>
+            </div>
+            <!-- Basco -->
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                <span class="font-medium text-slate-900 dark:text-white block mb-1">📍 {s3_label}</span>
+                <div class="space-y-0.5 text-slate-600 dark:text-slate-300">
+                    <div>• <strong>{year1}:</strong> {r1_s3:.1f} mm | {t1_s3:.1f}°C</div>
+                    <div>• <strong>{year2}:</strong> {r2_s3:.1f} mm | {t2_s3:.1f}°C</div>
+                    <div class="text-[11px] text-slate-400 pt-1">Diff: {abs(r1_s3 - r2_s3):.1f} mm ({year1 if r1_s3 > r2_s3 else year2} was wetter)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
 
-    def ctx(val, avg):
-        if conversation_state.get("lang") == "tl":
-            return "above avg ↑" if val > avg else "below avg ↓"
-        return "above avg ↑" if val > avg else "below avg ↓"
-
-    diff_s1 = r1_s1 - r2_s1
-    higher_year = year1 if r1_s1 > r2_s1 else year2
-
-    conversation_state["last_topic"] = "comparison"
-
-    if padre_garcia_only:
-        if conversation_state.get("lang") == "tl":
-            return (
-                f"{incomplete_note}"
-                f"⚔️ **Padre Garcia, Batangas: {year1} vs {year2}**\n\n"
-                f"Para sa Padre Garcia, ang naitalang total rainfall ay **{r1_s1:.1f} mm** noong {year1} "
-                f"at **{r2_s1:.1f} mm** noong {year2}.\n"
-                f"• **{year1} ENSO:** {p1_labels} | Avg Temp: {t1_s1:.1f}°C\n"
-                f"• **{year2} ENSO:** {p2_labels} | Avg Temp: {t2_s1:.1f}°C\n"
-                f"• **Difference:** {abs(diff_s1):.1f} mm\n"
-                f"• **Trend:** Mas mataas ang rainfall noong **{higher_year}**\n"
-                f"• **Interpretation:** Ito ay naglalarawan ng pagkakaiba sa naitalang rainfall. "
-                f"Hindi nito awtomatikong pinapatunay na sanhi ito ng El Niño."
-            )
-        return (
-            f"{incomplete_note}"
-            f"⚔️ **Padre Garcia, Batangas: {year1} vs {year2}**\n\n"
-            f"For Padre Garcia, the recorded total rainfall was **{r1_s1:.1f} mm** in {year1} "
-            f"and **{r2_s1:.1f} mm** in {year2}.\n"
-            f"• **{year1} ENSO:** {p1_labels} | Avg Temp: {t1_s1:.1f}°C\n"
-            f"• **{year2} ENSO:** {p2_labels} | Avg Temp: {t2_s1:.1f}°C\n"
-            f"• **Difference:** {abs(diff_s1):.1f} mm\n"
-            f"• **Trend:** Rainfall was higher in **{higher_year}**\n"
-            f"• **Interpretation:** This describes the recorded rainfall difference. "
-            f"It does not automatically prove that El Niño caused the change."
-        )
-
-    if conversation_state.get("lang") == "tl":
-        return (
-            f"{incomplete_note}"
-            f"⚔️ **Year Comparison: {year1} vs {year2}**\n\n"
-            f"📍 **Padre Garcia, Batangas**\n"
-            f"Para sa Padre Garcia, ang naitalang total rainfall ay **{r1_s1:.1f} mm** noong {year1} "
-            f"at **{r2_s1:.1f} mm** noong {year2}.\n"
-            f"• **{year1} ENSO:** {p1_labels} | Avg Temp: {t1_s1:.1f}°C\n"
-            f"• **{year2} ENSO:** {p2_labels} | Avg Temp: {t2_s1:.1f}°C\n"
-            f"• **Difference:** {abs(diff_s1):.1f} mm\n"
-            f"• **Trend:** Mas mataas ang rainfall noong **{higher_year}**\n"
-            f"• **Interpretation:** Ito ay naglalarawan ng pagkakaiba sa naitalang rainfall. "
-            f"Hindi nito awtomatikong pinapatunay na sanhi ito ng El Niño.\n\n"
-            f"📍 **Iba pang Stations:**\n\n"
-            f"**Quezon / Bicol Region** *(avg: {avg_s2:.1f} mm/year)*\n"
-            f"  - {year1}: {r1_s2:.1f} mm ({ctx(r1_s2, avg_s2)}) | {t1_s2:.1f}°C\n"
-            f"  - {year2}: {r2_s2:.1f} mm ({ctx(r2_s2, avg_s2)}) | {t2_s2:.1f}°C\n\n"
-            f"**Basco, Batanes** *(avg: {avg_s3:.1f} mm/year)*\n"
-            f"  - {year1}: {r1_s3:.1f} mm ({ctx(r1_s3, avg_s3)}) | {t1_s3:.1f}°C\n"
-            f"  - {year2}: {r2_s3:.1f} mm ({ctx(r2_s3, avg_s3)}) | {t2_s3:.1f}°C"
-        )
-    return (
-        f"{incomplete_note}"
-        f"⚔️ **Year Comparison: {year1} vs {year2}**\n\n"
-        f"📍 **Padre Garcia, Batangas**\n"
-        f"For Padre Garcia, the recorded total rainfall was **{r1_s1:.1f} mm** in {year1} "
-        f"and **{r2_s1:.1f} mm** in {year2}.\n"
-        f"• **{year1} ENSO:** {p1_labels} | Avg Temp: {t1_s1:.1f}°C\n"
-        f"• **{year2} ENSO:** {p2_labels} | Avg Temp: {t2_s1:.1f}°C\n"
-        f"• **Difference:** {abs(diff_s1):.1f} mm\n"
-        f"• **Trend:** Rainfall was higher in **{higher_year}**\n"
-        f"• **Interpretation:** This describes the recorded rainfall difference. "
-        f"It does not automatically prove that El Niño caused the change.\n\n"
-        # f"📍 **Other Stations:**\n\n"
-        # f"**Quezon / Bicol Region** *(avg: {avg_s2:.1f} mm/yr)*\n"
-        # f"  - {year1}: {r1_s2:.1f} mm ({ctx(r1_s2, avg_s2)}) | {t1_s2:.1f}°C\n"
-        # f"  - {year2}: {r2_s2:.1f} mm ({ctx(r2_s2, avg_s2)}) | {t2_s2:.1f}°C\n\n"
-        # f"**Basco, Batanes** *(avg: {avg_s3:.1f} mm/yr)*\n"
-        # f"  - {year1}: {r1_s3:.1f} mm ({ctx(r1_s3, avg_s3)}) | {t1_s3:.1f}°C\n"
-        # f"  - {year2}: {r2_s3:.1f} mm ({ctx(r2_s3, avg_s3)}) | {t2_s3:.1f}°C"
-    )
+    return main_card + station_expansion
 
 def handle_rain_query(padre_garcia_only=False):
     if master_df is None: return "Dataset not loaded."
@@ -1519,6 +2165,55 @@ TOPIC_SUGGESTIONS = {
             "Ano ang mga senyales ng heat exhaustion?",
             "Hulaan ang ulan para sa May"
         ]
+    },
+    "padre_garcia_info": {
+        "en": [
+            "What happens during El Niño in Padre Garcia?",
+            "Where can farmers ask for assistance?",
+            "Who should I contact during an emergency?"
+        ],
+        "tl": [
+            "Anong nangyayari tuwing El Niño sa Padre Garcia?",
+            "Saan humingi ng tulong ang mga magsasaka?",
+            "Sino ang dapat tawagan sa emergency?"
+        ]
+    },
+    # Health & First Aid Emergency Topics
+    "heatstroke_emergency": {
+        "en": [
+            "Who should I contact during an emergency?",
+            "What is the difference between heat exhaustion and heatstroke?",
+            "How can I contact the RHU?"
+        ],
+        "tl": [
+            "Sino ang dapat tawagan sa emergency?",
+            "Ano ang pagkakaiba ng heat exhaustion at heatstroke?",
+            "Paano makipag-ugnayan sa RHU?"
+        ]
+    },
+    "heat_exhaustion_action": {
+        "en": [
+            "What should I do if someone has heatstroke?",
+            "How can I prevent dehydration?",
+            "When should I seek medical help during extreme heat?"
+        ],
+        "tl": [
+            "Ano ang dapat gawin kung may heatstroke?",
+            "Paano maiwasan ang dehydration?",
+            "Kailan dapat humingi ng tulong medikal sa matinding init?"
+        ]
+    },
+    "dehydration_first_aid": {
+        "en": [
+            "How can I prevent dehydration?",
+            "What are the signs of heat exhaustion?",
+            "How should I store water safely?"
+        ],
+        "tl": [
+            "Paano maiwasan ang dehydration?",
+            "Ano ang mga senyales ng heat exhaustion?",
+            "Paano mag-imbak ng tubig nang ligtas?"
+        ]
     }
 }
 
@@ -1611,6 +2306,7 @@ def generate_related_questions(topic, user_message, reply_text, is_tl=False):
     )
 
     return chips_container
+
 # ==========================================
 # MAIN ROUTER
 # ==========================================
@@ -1625,8 +2321,50 @@ def chatbot_event_router(user_input):
     # Check if user specifically mentions Padre Garcia
     padre_garcia_only = any(k in clean_input for k in ["padre garcia", "batangas only", "only padre garcia", "local only", "sa padre garcia", "sa batangas"])
 
-    
+    # Check if user is in station mode (Padre Garcia only)
     # Technical information handler — before identity so "what are your..." doesn't hit identity first
+    # ==========================================
+    # STATION COMPARISON MODE TOGGLE
+    # ==========================================
+    if any(k in clean_input for k in [
+        "turn on station comparison", "enable station comparison", "station comparison mode on",
+        "turn on station mode", "enable station mode", "compare all stations", "3 stations mode",
+        "i-on ang station comparison", "buksan ang station comparison", "all stations mode on"
+    ]):
+        conversation_state["station_mode"] = True
+        conversation_state["last_topic"] = "station_mode_toggle"
+        return L(
+            "🌐 **Station Comparison Mode is now ON!**\n\n"
+            "Responses for climate records and year comparisons will now include all **3 monitored stations**:\n"
+            "1. 📍 **Padre Garcia, Batangas** (Local station)\n"
+            "2. 📍 **Quezon / Bicol Region** (Regional reference)\n"
+            "3. 📍 **Basco, Batanes** (Northern reference)\n\n"
+            "💡 *Try asking: 'Compare 2015 and 2020' or 'What happened during El Niño?' to see data across all stations.*\n"
+            "*(To return to local only, say: 'Turn off station comparison mode')*",
+
+            "🌐 **Naka-ON na ang Station Comparison Mode!**\n\n"
+            "Ang mga susunod na ulat at paghahambing ng klima ay magsasama na ng **tatlong monitored stations**:\n"
+            "1. 📍 **Padre Garcia, Batangas** (Lokal na istasyon)\n"
+            "2. 📍 **Quezon / Bicol Region** (Rehiyonal na istasyon)\n"
+            "3. 📍 **Basco, Batanes** (Hilagang istasyon)\n\n"
+            "💡 *Subukan itanong: 'Ihambing ang 2015 at 2020' upang makita ang datos sa tatlong lugar.*\n"
+            "*(Para bumalik sa Padre Garcia lamang, sabihin: 'I-off ang station comparison mode')*"
+        )
+
+    if any(k in clean_input for k in [
+        "turn off station comparison", "disable station comparison", "station comparison mode off",
+        "turn off station mode", "disable station mode", "padre garcia only", "local only",
+        "i-off ang station comparison", "isara ang station comparison"
+    ]):
+        conversation_state["station_mode"] = False
+        conversation_state["last_topic"] = "station_mode_toggle"
+        return L(
+            "📍 **Station Comparison Mode is now OFF.**\n\n"
+            "The chatbot has returned to **Padre Garcia, Batangas** localized mode. All weather summaries and data will focus exclusively on your local community.",
+            "📍 **Naka-OFF na ang Station Comparison Mode.**\n\n"
+            "Nagbalik na ang chatbot sa **Padre Garcia, Batangas** mode lamang. Ang lahat ng ulat ng panahon ay nakatuon na muli sa inyong lokal na komunidad."
+        )
+    
     if any(k in clean_input for k in [
         "technical information", "tech stack", "tech info", "what is your backend",
         "what is your frontend", "what is your stack", "your backend", "your frontend",
@@ -1708,7 +2446,7 @@ def chatbot_event_router(user_input):
         )
 
     # 0. ReadyKomunidad-related questions
-    if any(k in clean_input for k in ["what is readykomunidad", "ano ang readykomunidad", "what is this chatbot", "ano itong chatbot", "about this chatbot", "about readykomunidad", "tungkol sa readykomunidad", "ano ito", "pano ito", "who are you", "sino ka", "ano ka", "introduce yourself", "ipakilala mo ang sarili", "readykomunidad", "ReadyKomunidad"]):
+    if any(k in clean_input for k in ["what is readykomunidad", "ano ang readykomunidad", "what is this chatbot", "ano itong chatbot", "about this chatbot", "about readykomunidad", "tungkol sa readykomunidad", "ano ito", "pano ito", "who are you", "sino ka", "ano ka", "introduce yourself", "ipakilala mo ang sarili", "readykomunidad", "ReadyKomunidad", "sinoka","anong pangalan mo", "anong pangalan mo", "ano ka", "what are you"]):
         return L(
             "🤖 Hi, I am your ReadyKomunidad! \n\n"
             "I'm a bilingual climate awareness chatbot designed to help the residents of **Padre Garcia, Batangas** "
@@ -1781,6 +2519,16 @@ def chatbot_event_router(user_input):
             "**Layunin ko na tulungan ang mga residente upang maging handa para sa posibleng epekto ng El Niño.**"
         )
 
+    if any(k in clean_input for k in ["ai ka ba", "are you ai", "are you an ai", "are you a bot", "are you a chatbot", "are you a robot"]):
+            return L(
+                "🤖 Yes! I am an **AI chatbot!** called **ReadyKomunidad**\n\n"
+                "I am designed to provide information and assistance about El Niño, preparedness for extreme heat and water shortages, and community safety. 🌱"
+                "What else would you like to know? 😊",
+                "🤖 Oo! Ako ay isang **AI chatbot!** na tinatawag na **ReadyKomunidad**\n\n"
+                "Ako ay dinisenyo upang magbigay ng impormasyon at tulong tungkol sa El Niño, paghahanda para sa matinding init at kakulangan ng tubig, at kaligtasan ng komunidad. 🌱"
+                "Ano pa ang nais mong malaman? 😊"
+                )
+    
     if any(k in clean_input for k in ["who is this for", "para kanino", "target", "sino ang gagamit", "intended for", "para sa sino", "sino ang para"]):
         return L(
             "🏘️ **Who is ReadyKomunidad For?**\n"
@@ -1792,6 +2540,71 @@ def chatbot_event_router(user_input):
             "at mga community members na nais maunawaan kung paano nakakaapekto ang El Niño sa kanilang lugar.\n\n"
             "Layunin nitong tulungan ang community na **maghanda at tumugon** sa mga climate events bago ito mangyari."
         )
+# ==========================================
+    # PADRE GARCIA OVERVIEW HANDLER
+    # ==========================================
+    if any(k in clean_input for k in [
+        "what is padre garcia", "about padre garcia", "tell me about padre garcia",
+        "information about padre garcia", "ano ang padre garcia", "tungkol sa padre garcia",
+        "ipakilala ang padre garcia", "kwento ng padre garcia", "history of padre garcia"
+    ]) or clean_input in ["padre garcia", "padre garcia batangas"]:
+        conversation_state["last_topic"] = "padre_garcia_info"
+        return L(
+            "🌱 **Welcome to Padre Garcia, Batangas!**\n\n"
+            "![Padre Garcia Municipal Arch](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/LRT%2CBatangasjf9633_15.JPG/640px-LRT%2CBatangasjf9633_15.JPG)\n"
+            "![Padre Garcia Church](https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Padre_Garcia%2C_Batangas_Church.jpg/640px-Padre_Garcia%2C_Batangas_Church.jpg)\n\n"
+            "**Padre Garcia** is a thriving municipality located in the eastern portion of Batangas, Philippines. "
+            "It is widely known for its strong agricultural roots, hardworking community, and rich local heritage.\n\n"
+            "🐄 **Cattle Trading Capital of the Philippines**\n"
+            "The town earned this title because of its famous **Livestock Auction Market** — the largest of its kind in the country. "
+            "Every week, livestock raisers, traders, and buyers from Luzon, Visayas, and Mindanao gather in Padre Garcia to trade cattle, hogs, and goats.\n\n"
+            "📋 **Quick Facts About Padre Garcia:**\n"
+            "• **Province:** Batangas\n"
+            "• **Region:** CALABARZON (Region IV-A)\n"
+            "• **Barangays:** 18 rural and urban barangays\n"
+            "• **Municipal Center:** Barangay Poblacion\n"
+            "• **Primary Livelihoods:** Livestock trading, crop farming, and agribusiness\n\n"
+            "🎉 **What Makes Padre Garcia Special?**\n"
+            "• **Livestock Industry:** A vital driver of the local economy providing income for thousands of families.\n"
+            "• **Kabakahan Festival:** Celebrated annually in early December, this vibrant festival honors the cattle industry with street dancing, parades, and cultural contests.\n"
+            "• **Agricultural Heart:** Expansive farmlands yielding rice, corn, sugarcane, vegetables, and fruit crops.\n\n"
+            "🤝 **Why is Padre Garcia Important to ReadyKomunidad?**\n"
+            "Padre Garcia is the primary home and community that **ReadyKomunidad** was created to serve.\n\n"
+            "Because Padre Garcia's economy depends heavily on farming and livestock, climate shifts like **El Niño** present serious local risks:\n"
+            "• **Water Supply:** Depleted wells and irrigation canals during dry spells.\n"
+            "• **Crop Stress:** Reduced rice and corn yields from heat and lack of moisture.\n"
+            "• **Livestock Health:** Heat exhaustion and dehydration among farm animals.\n"
+            "• **Community Health:** Increased risk of heat stroke among farmers and outdoor workers.\n\n"
+            "💡 *ReadyKomunidad aims to empower every resident of Padre Garcia with timely climate data, AI rainfall predictions, and early preparedness tips.*",
+
+            "🌱 **Maligayang Pagdating sa Padre Garcia, Batangas!**\n\n"
+            "![Padre Garcia Municipal Arch](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/LRT%2CBatangasjf9633_15.JPG/640px-LRT%2CBatangasjf9633_15.JPG)\n"
+            "![Padre Garcia Church](https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Padre_Garcia%2C_Batangas_Church.jpg/640px-Padre_Garcia%2C_Batangas_Church.jpg)\n\n"
+            "Ang **Padre Garcia** ay isang maunlad na bayan na matatagpuan sa silangang bahagi ng Batangas, Pilipinas. "
+            "Kilala ito sa masiglang agrikultura, masisipag na mamamayan, at makulay na kasaysayan.\n\n"
+            "🐄 **Cattle Trading Capital of the Philippines (Kabisera ng Bakahan)**\n"
+            "Ikinararangal ng Padre Garcia ang titulong ito dahil sa tanyag nitong **Livestock Auction Market** — ang pinakamalaking pamilihan ng baka sa buong bansa. "
+            "Linggo-linggo, dumadayo rito ang mga magsasaka, mangangalakal, at mamimili mula sa iba't ibang panig ng Luzon, Visayas, at Mindanao upang magbenta at bumili ng baka, baboy, at kambing.\n\n"
+            "📋 **Mabilis na Impormasyon Ukol sa Padre Garcia:**\n"
+            "• **Lalawigan:** Batangas\n"
+            "• **Rehiyon:** CALABARZON (Region IV-A)\n"
+            "• **Bilang ng Barangay:** 18 barangay\n"
+            "• **Sentro ng Bayan:** Barangay Poblacion\n"
+            "• **Pangunahing Kabuhayan:** Pagbabakahan, pagtatanim, at kalakalan\n\n"
+            "🎉 **Bakit Espesyal ang Padre Garcia?**\n"
+            "• **Industriya ng Pagbabakahan:** Pangunahing pinagkukunan ng kita ng libu-libong pamilya at negosyo.\n"
+            "• **Kabakahan Festival:** Ipinagdiriwang tuwing simula ng Disyembre upang pasalamatan at ipagmalaki ang industriya ng baka sa pamamagitan ng street dancing at parada.\n"
+            "• **Masaganang Bukirin:** Malalawak na sakahan ng palay, mais, tubo, at mga gulay.\n\n"
+            "🤝 **Bakit Mahalaga ang Padre Garcia sa ReadyKomunidad?**\n"
+            "Ang Padre Garcia ang pangunahing komunidad na nilalayong paglingkuran ng **ReadyKomunidad**.\n\n"
+            "Dahil ang kabuhayan sa bayan ay nakasalalay sa agrikultura at mga alagang hayop, malaki ang epekto ng **El Niño** sa mga sumusunod:\n"
+            "• **Suplay ng Tubig:** Pagkatuyo ng mga balon at irigasyon sa mahabang tag-araw.\n"
+            "• **Pananim:** Pagkalanta ng palay at mais dahil sa matinding sikat ng araw.\n"
+            "• **Alagang Hayop:** Panganib ng heat stress at kakulangan sa inumin ng mga baka.\n"
+            "• **Kalusugan:** Banta ng heat stroke at dehydration sa mga magsasaka at manggagawa.\n\n"
+            "💡 *Layunin ng ReadyKomunidad na maghatid ng napapanahong impormasyon, rainfall predictions, at gabay sa paghahanda para sa bawat Garceño.*"
+        )
+
 
     # NEW: Scope and Limitations
     if any(k in clean_input for k in [
@@ -2589,7 +3402,7 @@ def chatbot_event_router(user_input):
 
 "**Tandaan:** Ang pagiging informed ay nakakatulong upang maging handa at maprotektahan ang sarili, pamilya, at komunidad laban sa mga epekto ng El Niño. 🌱"
         )
-
+    
     # NEW-3. Is El Niño serious? (severity/danger assessment)
     if any(phrase in clean_input for phrase in ["seryoso ba", "is it serious", "dangerous ba", "nakaka takot ba", "is el nino dangerous", "gaano kaseryoso", "how serious", "seryoso ba ito", "seryoso ba ang el nino"]):
         return L(
@@ -2620,7 +3433,7 @@ def chatbot_event_router(user_input):
             "📌 **Bottom line:** Hindi ito biro. Ang maagang paghahanda ay nakakapagligtas ng buhay at kabuhayan.\n\n"
             "💡 *Tanungin mo ako ng 'Paano ako maghahanda para sa El Niño?' o 'Ano ang ONI value ngayong taon?'*"
         )
-
+    
     # NEW-SIGNS. How to know if El Niño is happening / Signs of El Niño
     if any(k in clean_input for k in [
         "how to know if there is el nino", "how to know if el nino","signs el nino", "signs of el nino", "symptoms of el nino",
@@ -2815,6 +3628,31 @@ def chatbot_event_router(user_input):
             "🇵🇭 *Para sa Padre Garcia at ang Pilipinas, ang La Niña ay nangangahulugang above-normal na rainfall, mas malakas na typhoon season, at mas mataas na risk ng pagbaha.*"
         )
 
+# PAGASA Inquiry Handler
+    if any(k in clean_input for k in [
+        "what is pagasa", "ano ang pagasa", "what is pag-asa", "ano ang pag-asa",
+        "what does pagasa do", "ano ang ginagawa ng pagasa", "pagasa", "pag-asa", "pag asa"
+    ]):
+        conversation_state["last_topic"] = "pagasa_info"
+        return L(
+            "🌦️ **What is PAGASA?**\n\n"
+            "**PAGASA** stands for the **Philippine Atmospheric, Geophysical and Astronomical Services Administration**.\n\n"
+            "It is the national weather agency of the Philippines under DOST responsible for:\n"
+            "• Monitoring typhoons, tropical depressions, and monsoons\n"
+            "• Issuing official **El Niño and La Niña climate advisories**\n"
+            "• Providing seasonal rainfall outlooks for agricultural planning in towns like Padre Garcia\n"
+            "• Issuing extreme heat index and severe weather alerts\n\n"
+            "📞 **PAGASA Hotline:** **1553** | **Website:** [www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph/)",
+
+            "🌦️ **Ano ang PAGASA?**\n\n"
+            "Ang **PAGASA** ay ang **Philippine Atmospheric, Geophysical and Astronomical Services Administration**.\n\n"
+            "Ito ang pambansang ahensya ng panahon sa ilalim ng DOST na may pananagutan sa:\n"
+            "• Pagsubaybay sa mga bagyo, habagat, at amihan\n"
+            "• Paglalabas ng mga opisyal na **advisory para sa El Niño at La Niña**\n"
+            "• Pagbibigay ng seasonal rainfall forecast na gabay ng mga magsasaka sa Padre Garcia\n"
+            "• Paglalabas ng heat index alerts at babala sa matinding init\n\n"
+            "📞 **PAGASA Hotline:** **1553** | **Website:** [www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph/)"
+        )
     # CL-NEW-5. How long does La Niña last?
     if any(k in clean_input for k in [
         "how long does la nina last", "how long la nina", "duration of la nina",
@@ -3647,119 +4485,93 @@ def chatbot_event_router(user_input):
         )
 
     # CL-NEW-10. What is heatstroke?
+    # 1. HEATSTROKE (Priority: Medical Emergency)
     if any(k in clean_input for k in [
-        "what is heatstroke", "what is heat stroke", "define heatstroke", "define heat stroke",
-        "explain heatstroke", "explain heat stroke", "heatstroke meaning", "heat stroke meaning",
-        "ano ang heatstroke", "ano ang heat stroke", "ibig sabihin ng heatstroke",
-        "what is a heat stroke", "what happens in heatstroke", "heatstroke definition",
-        "what causes heatstroke", "heat stroke definition", "ano ang nangyayari sa heatstroke"
+        "heatstroke", "heat stroke", "may heatstroke", "first aid heatstroke",
+        "first aid heat stroke", "treat heatstroke", "what to do if someone has heatstroke",
+        "what to do heatstroke", "ano ang dapat gawin sa heatstroke", "gamot sa heatstroke"
     ]):
-        conversation_state["last_topic"] = "heatstroke_definition"
-        return L(
-            "🌡️ **What is Heatstroke?**\n\n"
-            "**Heatstroke** (also written as *heat stroke*) is a **life-threatening medical emergency** that occurs when the body's temperature rises to **40°C (104°F) or higher** and the body can no longer cool itself down.\n\n"
-            "It is the most severe form of heat-related illness — more dangerous than heat exhaustion — and requires **immediate emergency care**.\n\n"
-            "⚠️ **Warning signs of heatstroke:**\n"
-            "• Body temperature of **40°C or above**\n"
-            "• **Confusion, disorientation, or strange behavior** — a key warning sign\n"
-            "• Hot, red, dry or damp skin (sweating may stop in classic heatstroke)\n"
-            "• Rapid, strong pulse\n"
-            "• Nausea or vomiting\n"
-            "• Loss of consciousness or seizure in severe cases\n\n"
-            "🆚 **Difference from heat exhaustion:**\n"
-            "• Heat exhaustion — the body is struggling but still functioning; person is sweating heavily and feels weak\n"
-            "• Heatstroke — the body's cooling system has **failed**; person may be confused or unconscious\n\n"
-            "🚨 **What to do:**\n"
-            "1. **Call emergency services immediately** (911 or local MDRRMO)\n"
-            "2. Move the person to a cool, shaded area\n"
-            "3. Apply cool water to the skin — especially neck, armpits, and groin\n"
-            "4. Fan the person to speed cooling\n"
-            "5. Do **NOT** give fluids if the person is confused or unconscious\n\n"
-            "💡 *During El Niño, the risk of heatstroke is higher — especially for outdoor workers, children, and elderly people. Never ignore signs of confusion during extreme heat.*",
-            "🌡️ **Ano ang Heatstroke?**\n\n"
-            "Ang **heatstroke** ay isang **life-threatening na medical emergency** na nangyayari kapag ang temperatura ng katawan ay umabot sa **40°C (104°F) o mas mataas** at hindi na kayang palamigin ng katawan ang sarili nito.\n\n"
-            "Ito ang pinaka-malubhang anyo ng heat-related illness — mas mapanganib kaysa sa heat exhaustion — at nangangailangan ng **agarang emergency care**.\n\n"
-            "⚠️ **Mga babala ng heatstroke:**\n"
-            "• Temperatura ng katawan na **40°C o mas mataas**\n"
-            "• **Pagkalito, disorientation, o kakaibang pag-uugali** — ito ang pangunahing babala\n"
-            "• Mainit, pulang, tuyong o basang balat (maaaring huminto ang pagpapawis sa classic heatstroke)\n"
-            "• Mabilis, malakas na pulso\n"
-            "• Pagduduwal o pagsusuka\n"
-            "• Pagkawala ng malay o seizure sa matinding kaso\n\n"
-            "🆚 **Pagkakaiba sa heat exhaustion:**\n"
-            "• Heat exhaustion — nagsisikap pa ang katawan ngunit gumagana pa rin; sobrang pagpapawis at panghihina ng tao\n"
-            "• Heatstroke — **nabigo na** ang cooling system ng katawan; maaaring nalilito o walang malay ang tao\n\n"
-            "🚨 **Ano ang dapat gawin:**\n"
-            "1. **Tumawag agad ng emergency services** (911 o lokal na MDRRMO)\n"
-            "2. Ilipat ang tao sa malamig, maliwanag na lugar\n"
-            "3. Mag-apply ng malamig na tubig sa balat — lalo na sa leeg, kili-kili, at singit\n"
-            "4. Paghanginan ang tao para mapabilis ang pagpapalamig\n"
-            "5. **HUWAG** magbigay ng likido kung nalilito o walang malay ang tao\n\n"
-            "💡 *Sa panahon ng El Niño, mas mataas ang panganib ng heatstroke — lalo na para sa mga outdoor worker, bata, at matatanda. Huwag balewalain ang mga senyales ng pagkalito sa panahon ng matinding init.*"
-        )
+        return handle_heatstroke_emergency()
 
-    # CL-NEW-11. What are the signs of dehydration?
+    # 2. HEAT EXHAUSTION (First Aid & Signs)
     if any(k in clean_input for k in [
-        "signs of dehydration", "symptoms of dehydration", "dehydration signs",
-        "dehydration symptoms", "how do i know if i am dehydrated",
-        "how to know dehydration", "recognize dehydration",
-        "senyales ng dehydration", "sintomas ng dehydration",
-        "signs that you are dehydrated", "am i dehydrated", "paano malaman kung dehydrated",
-        "dehydration warning signs", "what does dehydration feel like"
+        "heat exhaustion", "heat exhaustion first aid", "first aid heat exhaustion",
+        "treat heat exhaustion", "someone has heat exhaustion", "nakakaranas ng heat exhaustion",
+        "signs of heat exhaustion", "senyales ng heat exhaustion", "what to do heat exhaustion"
     ]):
-        conversation_state["last_topic"] = "dehydration_signs"
-        return L(
-            "💧 **What Are the Signs of Dehydration?**\n\n"
-            "Dehydration occurs when your body loses more fluids than it takes in. During El Niño's hot, dry conditions, it's one of the most common health risks — and it can sneak up on you.\n\n"
-            "🔴 **Early signs (mild dehydration):**\n"
-            "• Feeling **thirsty** — note: thirst already means you are mildly dehydrated\n"
-            "• **Dark yellow urine** — pale/clear urine is a good sign; dark means drink more water\n"
-            "• Dry mouth and lips\n"
-            "• Feeling tired or sluggish\n"
-            "• Decreased urination (fewer trips to the bathroom)\n\n"
-            "🟠 **Moderate signs:**\n"
-            "• Headache\n"
-            "• Dizziness or lightheadedness, especially when standing up\n"
-            "• Muscle cramps\n"
-            "• Dry skin that doesn't bounce back when pinched\n\n"
-            "🔴 **Severe signs (seek help immediately):**\n"
-            "• Rapid heartbeat\n"
-            "• Rapid breathing\n"
-            "• Sunken eyes\n"
-            "• Confusion or irritability\n"
-            "• Fainting\n"
-            "• Little to no urination for 8+ hours\n\n"
-            "👶 **Special groups at higher risk:**\n"
-            "• **Children** — smaller body mass means faster dehydration\n"
-            "• **Elderly** — reduced thirst sensation means they may not feel thirsty even when dehydrated\n"
-            "• **Outdoor workers** — losing fluids faster through sweat\n\n"
-            "💡 *The best cure is prevention — drink 8–10 glasses of water daily during El Niño months, and more if you are working outdoors or feeling hot.*",
-            "💧 **Ano ang mga Senyales ng Dehydration?**\n\n"
-            "Ang dehydration ay nangyayari kapag mas maraming fluid ang nawawala sa katawan mo kaysa sa natatanggap nito. Sa mainit at tuyong kondisyon ng El Niño, ito ay isa sa mga pinakakaraniwang health risks — at maaari kang masorpresa.\n\n"
-            "🔴 **Maagang senyales (mild dehydration):**\n"
-            "• Pakiramdam na **nauuhaw** — tandaan: ang pagkauhaw ay senyales na ng mild dehydration\n"
-            "• **Maitim na dilaw na ihi** — maliwanag/malinaw na ihi ang magandang tanda; maitim ay nangangahulugang uminom pa ng tubig\n"
-            "• Tuyo ang bibig at labi\n"
-            "• Pakiramdam ng pagod o hindi aktibo\n"
-            "• Mas kaunting pag-ihi (mas kaunting beses sa banyo)\n\n"
-            "🟠 **Katamtamang senyales:**\n"
-            "• Sakit ng ulo\n"
-            "• Pagkahilo, lalo na kapag tumayo\n"
-            "• Pamumulikat ng kalamnan\n"
-            "• Tuyong balat na hindi bumabalik kapag kinurot\n\n"
-            "🔴 **Malubhang senyales (humingi agad ng tulong):**\n"
-            "• Mabilis na tibok ng puso\n"
-            "• Mabilis na paghinga\n"
-            "• Malalim na nakita ang mga mata\n"
-            "• Pagkalito o pagkainis\n"
-            "• Pag-himatay\n"
-            "• Halos walang ihi sa loob ng 8+ oras\n\n"
-            "👶 **Mga grupo na mas madaling ma-dehydrate:**\n"
-            "• **Mga bata** — mas maliit na katawan kaya mas mabilis mag-dehydrate\n"
-            "• **Mga matatanda** — nabawasang pakiramdam ng pagkauhaw kaya maaaring hindi sila mauhaw kahit dehydrated na\n"
-            "• **Mga outdoor worker** — mas mabilis nawawala ang fluids sa pagpapawis\n\n"
-            "💡 *Ang pinakamabuting lunas ay pag-iwas — uminom ng 8–10 baso ng tubig araw-araw sa panahon ng El Niño months, at mas marami kung nagtatrabaho ka sa labas o mainit ka.*"
-        )
+        return handle_heat_exhaustion_first_aid()
+
+    # 3. DEHYDRATION (First Aid & Treatment)
+    if any(k in clean_input for k in [
+        "dehydration", "dehydrated", "treat dehydration", "how do i treat dehydration",
+        "dehydration first aid", "first aid dehydration", "what to do for dehydration",
+        "gamot sa dehydration", "paano gamutin ang dehydration", "am i dehydrated",
+        "signs of dehydration", "senyales ng dehydration"
+    ]):
+        return handle_dehydration_first_aid()
+
+    # # CL-NEW-11. What are the signs of dehydration?
+    # if any(k in clean_input for k in [
+    #     "signs of dehydration", "symptoms of dehydration", "dehydration signs",
+    #     "dehydration symptoms", "how do i know if i am dehydrated",
+    #     "how to know dehydration", "recognize dehydration",
+    #     "senyales ng dehydration", "sintomas ng dehydration",
+    #     "signs that you are dehydrated", "am i dehydrated", "paano malaman kung dehydrated",
+    #     "dehydration warning signs", "what does dehydration feel like"
+    # ]):
+    #     conversation_state["last_topic"] = "dehydration_signs"
+    #     return L(
+    #         "💧 **What Are the Signs of Dehydration?**\n\n"
+    #         "Dehydration occurs when your body loses more fluids than it takes in. During El Niño's hot, dry conditions, it's one of the most common health risks — and it can sneak up on you.\n\n"
+    #         "🔴 **Early signs (mild dehydration):**\n"
+    #         "• Feeling **thirsty** — note: thirst already means you are mildly dehydrated\n"
+    #         "• **Dark yellow urine** — pale/clear urine is a good sign; dark means drink more water\n"
+    #         "• Dry mouth and lips\n"
+    #         "• Feeling tired or sluggish\n"
+    #         "• Decreased urination (fewer trips to the bathroom)\n\n"
+    #         "🟠 **Moderate signs:**\n"
+    #         "• Headache\n"
+    #         "• Dizziness or lightheadedness, especially when standing up\n"
+    #         "• Muscle cramps\n"
+    #         "• Dry skin that doesn't bounce back when pinched\n\n"
+    #         "🔴 **Severe signs (seek help immediately):**\n"
+    #         "• Rapid heartbeat\n"
+    #         "• Rapid breathing\n"
+    #         "• Sunken eyes\n"
+    #         "• Confusion or irritability\n"
+    #         "• Fainting\n"
+    #         "• Little to no urination for 8+ hours\n\n"
+    #         "👶 **Special groups at higher risk:**\n"
+    #         "• **Children** — smaller body mass means faster dehydration\n"
+    #         "• **Elderly** — reduced thirst sensation means they may not feel thirsty even when dehydrated\n"
+    #         "• **Outdoor workers** — losing fluids faster through sweat\n\n"
+    #         "💡 *The best cure is prevention — drink 8–10 glasses of water daily during El Niño months, and more if you are working outdoors or feeling hot.*",
+    #         "💧 **Ano ang mga Senyales ng Dehydration?**\n\n"
+    #         "Ang dehydration ay nangyayari kapag mas maraming fluid ang nawawala sa katawan mo kaysa sa natatanggap nito. Sa mainit at tuyong kondisyon ng El Niño, ito ay isa sa mga pinakakaraniwang health risks — at maaari kang masorpresa.\n\n"
+    #         "🔴 **Maagang senyales (mild dehydration):**\n"
+    #         "• Pakiramdam na **nauuhaw** — tandaan: ang pagkauhaw ay senyales na ng mild dehydration\n"
+    #         "• **Maitim na dilaw na ihi** — maliwanag/malinaw na ihi ang magandang tanda; maitim ay nangangahulugang uminom pa ng tubig\n"
+    #         "• Tuyo ang bibig at labi\n"
+    #         "• Pakiramdam ng pagod o hindi aktibo\n"
+    #         "• Mas kaunting pag-ihi (mas kaunting beses sa banyo)\n\n"
+    #         "🟠 **Katamtamang senyales:**\n"
+    #         "• Sakit ng ulo\n"
+    #         "• Pagkahilo, lalo na kapag tumayo\n"
+    #         "• Pamumulikat ng kalamnan\n"
+    #         "• Tuyong balat na hindi bumabalik kapag kinurot\n\n"
+    #         "🔴 **Malubhang senyales (humingi agad ng tulong):**\n"
+    #         "• Mabilis na tibok ng puso\n"
+    #         "• Mabilis na paghinga\n"
+    #         "• Malalim na nakita ang mga mata\n"
+    #         "• Pagkalito o pagkainis\n"
+    #         "• Pag-himatay\n"
+    #         "• Halos walang ihi sa loob ng 8+ oras\n\n"
+    #         "👶 **Mga grupo na mas madaling ma-dehydrate:**\n"
+    #         "• **Mga bata** — mas maliit na katawan kaya mas mabilis mag-dehydrate\n"
+    #         "• **Mga matatanda** — nabawasang pakiramdam ng pagkauhaw kaya maaaring hindi sila mauhaw kahit dehydrated na\n"
+    #         "• **Mga outdoor worker** — mas mabilis nawawala ang fluids sa pagpapawis\n\n"
+    #         "💡 *Ang pinakamabuting lunas ay pag-iwas — uminom ng 8–10 baso ng tubig araw-araw sa panahon ng El Niño months, at mas marami kung nagtatrabaho ka sa labas o mainit ka.*"
+    #     )
 
     # CL3-6. What should I do if someone experiences heat exhaustion?
     if any(k in clean_input for k in ["if someone experiences heat exhaustion", "someone has heat exhaustion", "nakakaranas ng heat exhaustion", "may heat exhaustion", "heat exhaustion first aid", "first aid heat exhaustion", "treat heat exhaustion", "help someone heat exhaustion", "what to do heat exhaustion", "kung may heat exhaustion", "someone experiences heat", "person has heat exhaustion"]):
@@ -4064,6 +4876,7 @@ def chatbot_event_router(user_input):
             "• National Emergency Hotline: **911**\n"
             "• Red Cross: **143**"
         )
+    
 
     # 7. Year/Month queries
 
@@ -5034,8 +5847,10 @@ def chatbot_event_router(user_input):
         elif padre_garcia_only:
             return handle_el_nino_padre_garcia()
         else:
-            # Default to Padre Garcia-focused response since this chatbot is for Padre Garcia residents
-            # Only show 3-station comparison if specifically asked
+            # If Station Comparison Mode is active, show all 3 stations
+            if conversation_state.get("station_mode", False):
+                return handle_el_nino_general()
+            # Otherwise, default to Padre Garcia
             return handle_el_nino_padre_garcia()
 
     if any(k in clean_input for k in ["la nina", "flood", "pagbaha"]) or re.search(r'\bbaha\b', clean_input):
