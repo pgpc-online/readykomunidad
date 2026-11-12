@@ -7051,21 +7051,19 @@ def admin_page():
     if not _current_admin():
         return redirect(url_for("admin_login"))
     
-    # Check multiple common directories so PythonAnywhere never crashes
-    candidate_paths = [
+    # Check directory candidates on PythonAnywhere
+    candidates = [
         os.path.dirname(os.path.abspath(__file__)),
         app.root_path,
-        os.getcwd(),
         '/home/readykomunidad'
     ]
-    for directory in candidate_paths:
-        file_path = os.path.join(directory, "admin.html")
-        if os.path.exists(file_path):
-            return send_from_directory(directory, "admin.html")
-            
-    return "<h3>Error: admin.html was not found in the project directory. Please check the Files tab.</h3>", 404
+    for d in candidates:
+        candidate_file = os.path.join(d, "admin.html")
+        if os.path.exists(candidate_file):
+            return send_from_directory(d, "admin.html")
 
-
+    return "<h3>Error: admin.html was not found in your PythonAnywhere directory. Make sure it is uploaded in /home/readykomunidad/admin.html</h3>", 404
+    
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if _current_admin():
@@ -7081,7 +7079,7 @@ def admin_login():
         username = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
 
-        # Prototype login bypass for admin / admin123
+        # Prototype bypass: admin / admin123
         if username == "admin" and password == "admin123":
             ensure_default_prototype_admin()
             user = db.get_admin_user_by_email("admin")
@@ -7092,7 +7090,7 @@ def admin_login():
                 session["admin_csrf_token"] = token_urlsafe(32)
                 return redirect(url_for("admin_page"))
 
-        # Standard check for other users
+        # Standard check for any other user
         user = db.get_admin_user_by_email(username)
         if (
             user and user["status"] == "Active"
@@ -7109,7 +7107,6 @@ def admin_login():
     return render_template_string(
         ADMIN_AUTH_TEMPLATE,
         title="Administrator Sign In",
-        setup_required=False,
         csrf_token=_admin_csrf_token(),
         error=error,
     )
