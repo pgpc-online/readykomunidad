@@ -2278,6 +2278,30 @@ TOPIC_SUGGESTIONS = {
             "Ano ang mga senyales ng heat exhaustion?",
             "Paano mag-imbak ng tubig nang ligtas?"
         ]
+    },
+    "clothing_tips": {
+        "en": [
+            "What should I do during extreme heat?",
+            "What are the signs of dehydration?",
+            "What are the emergency hotlines in Padre Garcia?"
+        ],
+        "tl": [
+            "Ano ang dapat gawin sa matinding init?",
+            "Ano ang mga senyales ng dehydration?",
+            "Ano ang emergency hotlines sa Padre Garcia?"
+        ]
+    },
+    "first_aid_general": {
+        "en": [
+            "What is the difference between heat exhaustion and heatstroke?",
+            "How to make homemade ORS?",
+            "Who should I contact during an emergency?"
+        ],
+        "tl": [
+            "Ano ang pagkakaiba ng heat exhaustion at heat stroke?",
+            "Paano magtimpla ng ORS sa bahay?",
+            "Sino ang dapat tawagan sa emergency?"
+        ]
     }
 }
 
@@ -2407,7 +2431,65 @@ def is_out_of_scope(text):
         "bitcoin", "stock", "basketball", "code", "program",
     ])
 
+def handle_clothing_tips():
+    conversation_state["last_topic"] = "clothing_tips"
+    return L(
+        "👕 **What to Wear During El Niño & Hot Weather**\n\n"
+        "During El Niño and hot weather, it is best to wear light, comfortable clothing to help keep your body cool.\n\n"
+        "Here are some helpful tips:\n\n"
+        "• 👕 **Light-colored clothes** – Choose white or light-colored garments because they reflect heat and absorb less compared to dark colors.\n"
+        "• 🌿 **Breathable fabrics** – Wear cotton or lightweight fabrics that allow heat and sweat to evaporate easily.\n"
+        "• 👖 **Loose-fitting clothing** – Avoid overly tight clothes to allow better airflow.\n"
+        "• 🧢 **Hat or cap** – Protect your head and face under direct sunlight.\n"
+        "• 🕶️ **Sunglasses & Umbrella** – Protect your eyes from intense UV rays and provide shade outdoors.\n\n"
+        "💡 *Tip: Avoid thick, tight, and dark-colored clothing. Don't forget to drink plenty of clean water and seek shade outdoors.*",
 
+        "👕 **Ano ang Dapat Isuot Kapag May El Niño at Mainit ang Panahon?**\n\n"
+        "Kapag may El Niño at mainit ang panahon, mas magandang magsuot ng damit na presko at komportable para hindi madaling uminit ang katawan.\n\n"
+        "Narito ang ilang tips:\n\n"
+        "• 👕 **Light-colored clothes** – Pumili ng puti o light-colored na damit dahil mas kaunti ang init na naa-absorb nito kumpara sa dark colors.\n"
+        "• 🌿 **Preskong tela** – Magsuot ng cotton o breathable fabrics na madaling magpalabas ng init at pawis.\n"
+        "• 👖 **Maluluwag na damit** – Iwasan ang sobrang sikip na damit para mas maayos ang airflow.\n"
+        "• 🧢 **Sombrero o cap** – Protektahan ang ulo at mukha kapag nasa ilalim ng araw.\n"
+        "• 🕶️ **Sunglasses o Payong** – Makakatulong protektahan ang iyong mga mata mula sa matinding sikat ng araw.\n\n"
+        "💡 *Tip: Iwasan ang makapal, masikip, at madidilim na damit kapag matindi ang init. Huwag ding kalimutang uminom ng sapat na tubig at maghanap ng lilim kapag nasa labas.*"
+    )
+
+def handle_first_aid_general():
+    conversation_state["last_topic"] = "first_aid_general"
+    return L(
+        "🩹 **General First Aid for Extreme Heat & El Niño:**\n\n"
+        "1. 🌡️ **Heat Exhaustion:** Move to shade, loosen clothes, apply cool damp cloth, sip water slowly.\n"
+        "2. 🚨 **Heatstroke (Emergency):** Call 911 / MDRRMO immediately! Actively sponge with cool water. ⛔ *Never give water if confused or unconscious.*\n"
+        "3. 💧 **Dehydration:** Drink clean water or Oral Rehydration Salts (ORS) slowly in small sips.\n"
+        "4. 🦵 **Heat Cramps:** Rest in a cool place, gently stretch muscles, and drink water with a pinch of salt or ORS.\n\n"
+        "📞 **Padre Garcia MDRRMO:** (043) 515-7424 | 0977-801-1557\n"
+        "📞 **Padre Garcia RHU:** (043) 515-9209",
+
+        "🩹 **Pangkalahatang Gabay sa First Aid (Matinding Init at El Niño):**\n\n"
+        "1. 🌡️ **Heat Exhaustion:** Lumipat sa lilim, luwagan ang damit, punasan ng basang tela, uminom ng tubig nang paunti-unti.\n"
+        "2. 🚨 **Heatstroke (Emergency):** Tumawag agad sa 911 o MDRRMO! Palamigin ang katawan ng basang tela. ⛔ *Huwag painumin kapag tuliro o walang malay.*\n"
+        "3. 💧 **Dehydration:** Uminom ng tubig o Oral Rehydration Salts (ORS) nang paunti-unti.\n"
+        "4. 🦵 **Pamumulikat (Cramps):** Magpahinga sa malilim na lugar, dahan-dahang iunat ang kalamnan, at uminom ng tubig na may kaunting asin o ORS.\n\n"
+        "📞 **Padre Garcia MDRRMO:** (043) 515-7424 | 0977-801-1557\n"
+        "📞 **Padre Garcia RHU:** (043) 515-9209"
+    )
+
+def handle_ors_guide():
+    conversation_state["last_topic"] = "ors_guide"
+    return L(
+        "💧 **How to Make Homemade ORS (Oral Rehydration Solution):**\n\n"
+        "• **1 Liter** of clean drinking water\n"
+        "• **6 level teaspoons** of sugar\n"
+        "• **1/2 level teaspoon** of salt\n\n"
+        "Stir until dissolved. Sip small amounts frequently. Discard unused solution after 24 hours.",
+
+        "💧 **Paano Magtimpla ng ORS (Oresol) sa Bahay:**\n\n"
+        "• **1 Litro** ng malinis na inuming tubig\n"
+        "• **6 na pantay na kutsarita** ng asukal\n"
+        "• **1/2 kutsarita** ng asin\n\n"
+        "Haluing mabuti hanggang matunaw. Painumin nang paunti-unti. Itapon ang timpla kapag lumagpas na sa 24 oras."
+    )
 
 def chatbot_event_router(user_input, session_id=None):
     global conversation_state
@@ -3209,14 +3291,18 @@ def chatbot_event_router(user_input, session_id=None):
         )
 
     # ---- live weather handler ----
+    # Ensure live weather requires BOTH a live time indicator AND weather words,
+    # but ignore general historical rainfall checks
     words = set(re.findall(r"[a-z']+", clean_input))
-    asks_weather = bool(words & {"panahon", "weather", "ulan", "init", "bagyo", "rain", "uulan", "rainfall"})
-    asks_now = bool(words & {
-        "ngayon", "ngayong", "today", "now", "tonight", "mamaya", "bukas",
-        "tomorrow", "current", "kasalukuyan"
-    }) or "this week" in clean_input or "ngayong linggo" in clean_input or "right now" in clean_input
+    asks_live_intent = any(phrase in clean_input for phrase in [
+        "uulan ba", "panahon ngayon", "weather today", "weather now", 
+        "rain today", "will it rain", "may bagyo ba", "uulan kaya"
+    ]) or (
+        bool(words & {"panahon", "weather", "bagyo", "uulan"}) and
+        bool(words & {"ngayon", "today", "now", "mamaya", "bukas", "tonight"})
+    )
 
-    if asks_weather and asks_now:
+    if asks_live_intent:
         return L(
             "🌦️ I don't have live weather data, so I can't tell you today's weather. "
             "I only use historical records (2010–2026) and ML estimates.\n\n"
@@ -4074,6 +4160,9 @@ def chatbot_event_router(user_input, session_id=None):
             "• Paglalabas ng heat index alerts at babala sa matinding init\n\n"
             "📞 **PAGASA Hotline:** **1553** | **Website:** [www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph/)"
         )
+    # Standalone Rainfall / Rain overview (prevents fallback to PAGASA)
+    if clean_input in ["ulan", "rain", "rainfall", "pag-ulan", "weather"] or any(k in clean_input for k in ["records ng ulan", "rainfall record", "rain record"]):
+        return handle_rain_query(padre_garcia_only)
     # CL-NEW-5. How long does La Niña last?
     if any(k in clean_input for k in [
         "how long does la nina last", "how long la nina", "duration of la nina",
@@ -4776,7 +4865,18 @@ def chatbot_event_router(user_input, session_id=None):
             "• Sundin ang anumang water rationing schedules na itinakda ng inyong local government\n"
             "• Iulat agad sa inyong LGU ang mga water leaks sa mga pampublikong pipes"
         )
+        # Clothing / What to wear
+    if any(k in clean_input for k in [
+        "isuot", "suotin", "suutin", "idamit", "damit", "anong isusuot", 
+        "ano ang dapat isuot", "kasuotan", "what to wear", "what should i wear", "clothes to wear"
+    ]):
+        return handle_clothing_tips()
+        # General First Aid & ORS
+    if any(k in clean_input for k in ["paunang lunas", "first aid", "first-aid"]) and not any(k in clean_input for k in ["heatstroke", "heat stroke", "exhaustion", "dehydration"]):
+        return handle_first_aid_general()
 
+    if any(k in clean_input for k in ["oresol", "ors", "rehydration salt", "oral rehydration", "magtimpla ng oresol"]):
+        return handle_ors_guide()
     # CL3-3. What should I do during extreme heat?
     if any(k in clean_input for k in ["extreme heat", "during heat", "sobrang init", "matinding init", "heat wave", "mainit na panahon", "kapag mainit", "sa sobrang init", "what to do heat", "what should i do during extreme heat", "during hot weather", "sa matinding init", "what to do during extreme"]):
         # Don't intercept medical-seeking questions — let them fall to CL3-11
