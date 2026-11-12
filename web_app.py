@@ -1910,11 +1910,13 @@ TOPIC_SUGGESTIONS = {
     "el_nino_definition": {
         "en": [
             "What are the effects of El Niño?",
+            "What is a Super El Niño?",
             "What is the difference between El Niño and La Niña?",
             "What should I do during El Niño?"
         ],
         "tl": [
             "Ano ang mga epekto ng El Niño?",
+            "Ano ang Super El Niño?",
             "Ano ang pagkakaiba ng El Niño at La Niña?",
             "Ano ang dapat gawin sa panahon ng El Niño?"
         ]
@@ -3049,6 +3051,16 @@ def chatbot_event_router(user_input):
             "Hello! 👋 **ReadyKomunidad** here — your guide to El Niño awareness for Padre Garcia, Batangas. You can ask me about its effects, preparedness tips, and local climate data. \n\nIs there any concern I can help you with?"
         ])
 
+    # Batangueño small talk about hot, humid weather
+    if any(phrase in clean_input for phrase in [
+        "ang banas", "grabe ang banas", "sobrang banas", "banas talaga", "banas", "ang init", "sobrang init", "grabe ang init", "init talaga", "ang init ng panahon", "init ng panahon", "init na panahon", "init na panahon ngayon", "init ngayon", "sobrang init ngayon"
+    ]) or clean_input.strip() == "banas":
+        conversation_state["last_topic"] = "heat_comfort"
+        return L(
+            "Whew, it sounds really hot! 🥵 Take a break somewhere cool or in the shade, drink water regularly, and avoid staying in the sun too long. If you feel dizzy, weak, or nauseated, cool down and ask someone nearby for help.",
+            "Naku, grabe naman ang **banas**! 🥵 Parang nakapaso ang init, ano? Ingat tayo, ha. 💧 Uminom ng tubig nang madalas, tumambay muna sa preskong lugar o lilim, at bawasan ang pagbibilad sa araw. Kung nahihilo, nanghihina, o naduduwal, magpalamig agad at humingi ng tulong."
+        )
+
     # 1b. Gratitude / farewells
     if any(k in clean_input for k in ["thank you", "thanks", "thank u", "tyvm", "salamat", "maraming salamat", "salamat po", "thank you po"]) or clean_input.split() == ["ty"] or clean_input.strip() == "ty":
         return L(
@@ -3409,8 +3421,29 @@ def chatbot_event_router(user_input):
 "Ano pa ang gusto mo itanong? 😊"
         )
 
+    # Super El Niño — a very strong El Niño event, not a separate phenomenon
+    if any(k in clean_input for k in [
+        "super el nino", "super el niño", "el nino super", "el niño super",
+        "very strong el nino", "very strong el niño",
+        "ano ang super nino", "ano yung super el nino",
+        "super el nino ba", "super el nino epekto",
+    ]):
+        conversation_state["last_topic"] = "super_el_nino"
+        return L(
+            "☀️ **What Is a Super El Niño?**\n\n"
+            "“Super El Niño” is an informal way to describe a **very strong El Niño event**. It is not a separate climate phenomenon, and the term does not have one universally agreed official threshold. Scientists monitor El Niño using ocean measurements such as the **ONI (Oceanic Niño Index)**.\n\n"
+            "Possible effects include hotter conditions in some places, reduced rainfall or longer dry spells, water-supply concerns, and stress on crops and livestock. Effects vary by location, so these conditions are not guaranteed everywhere.\n\n"
+            "**How to prepare:** conserve and safely store water, avoid prolonged exposure to the sun, drink enough water, protect crops and animals from heat, and follow official **PAGASA** advisories.\n\n"
+            "💡 *A strong event does not mean every community will experience the same impacts.*",
+            "☀️ **Ano ang Super El Niño?**\n\n"
+            "Ang “Super El Niño” ay impormal na tawag sa **napakalakas na El Niño event**. Hindi ito hiwalay na climate phenomenon, at walang iisang opisyal na sukatan na ginagamit ng lahat para sa salitang “super.” Sinusubaybayan ng mga siyentipiko ang El Niño gamit ang mga sukat sa karagatan gaya ng **ONI (Oceanic Niño Index)**.\n\n"
+            "Maaaring magdulot ito ng matinding init, mas kaunting ulan o mas mahabang tagtuyot, kakulangan sa tubig, at epekto sa mga pananim at alagang hayop. Nagkakaiba ang epekto depende sa lugar, kaya hindi pare-pareho ang mararanasan ng bawat komunidad.\n\n"
+            "**Paano maghanda:** magtipid at mag-imbak nang ligtas ng malinis na tubig, iwasan ang matagal na pagbibilad sa araw, uminom ng sapat na tubig, protektahan sa init ang mga pananim at alagang hayop, at subaybayan ang opisyal na **PAGASA** advisories.\n\n"
+            "💡 *Hindi ibig sabihin ng malakas na event ay pare-pareho ang epekto sa lahat ng lugar.*"
+        )
+
     # 3. What is El Niño?
-    if any(k in clean_input for k in ["what is el nino", "what is el niño", "define el nino", "define el niño", "definition of el nino", "explain el nino", "meaning of el nino", "ano ang el nino", "ano ang el niño", "el nino what", "el niño what", "about el nino", "tungkol sa el nino", "ipaliwanag ang el nino", "ibig sabihin ng el nino" , "el nino definition", "el niño definition","ano yung el nino", "ano yung el niño"]):
+    if any(k in clean_input for k in ["what is el nino", "what is el niño", "define el nino", "define el niño", "definition of el nino", "explain el nino", "meaning of el nino", "ano ang el nino", "ano ang el niño", "el nino what", "el niño what", "about el nino", "tungkol sa el nino", "ipaliwanag ang el nino", "ibig sabihin ng el nino" , "el nino definition", "el niño definition","ano yung el nino", "ano yung el niño", "ano ga ang el nino", "ano ga ang el niño",]):
         conversation_state["last_topic"] = "el_nino_definition"
         return L(
             "🌊 **What is El Niño?**\n"
@@ -6213,16 +6246,55 @@ def chatbot_event_router(user_input):
         return handle_el_nino_general()
 
     # 10. Conversational memory follow-up
-    if conversation_state["last_topic"] in ["el_nino", "el_nino_definition"] and any(w in clean_input for w in ["affect", "impact", "environment", "consequence", "result", "why", "epekto", "pinsala", "bakit", "resulta"]):
+    
+    if conversation_state["last_topic"] in ["el_nino", "el_nino_definition"] and any(
+        w in clean_input for w in [
+            "affect", "impact", "environment", "consequence",
+            "result", "why", "epekto", "pinsala", "bakit", "resulta"
+        ]
+    ):
         return L(
-            "⚠️ **El Niño Impacts on Padre Garcia:**\n"
-            "• **Ecosystem Strain:** Drought conditions dry out forest cover, elevating wildfire risks.\n"
-            "• **Water Depletion:** Low precipitation reduces river discharge and reservoir levels.\n"
-            "• **Livelihood Disruption:** Farmers face reduced crop productivity — early preparedness is key.",
-            "⚠️ **Mga Epekto ng El Niño sa Padre Garcia:**\n"
-            "• **Ecosystem Strain:** Ang drought conditions ay nagpapatuyo sa forest cover, nagpapataas ng wildfire risk.\n"
-            "• **Water Depletion:** Ang low rainfall ay nagbabawas sa river discharge at reservoir levels.\n"
-            "• **Livelihood Disruption:** Nababawasan ang crop productivity ng mga farmers — ang early preparedness ay mahalaga."
+            "⚠️ **Possible Effects of El Niño:**\n"
+            "El Niño can bring warmer temperatures and below-normal rainfall, "
+            "which may affect communities in several ways:\n\n"
+            "• **Water Shortage:** Reduced rainfall may lower water availability "
+            "for households, farms, and other daily needs.\n"
+            "• **Extreme Heat:** Higher temperatures can increase the risk of "
+            "dehydration, heat exhaustion, and heatstroke.\n"
+            "• **Agricultural Losses:** Lack of water can affect crop growth, "
+            "reduce harvests, and increase farming difficulties.\n"
+            "• **Livestock Stress:** Extreme heat and limited water may affect "
+            "the health and productivity of farm animals.\n"
+            "• **Environmental Effects:** Dry conditions can increase the risk "
+            "of grass and forest fires.\n"
+            "• **Economic Effects:** Reduced agricultural production may affect "
+            "farmers' income and food availability.\n\n"
+            "💡 **How can we prepare?** Conserve water, stay hydrated, protect "
+            "crops and livestock, and follow official PAGASA advisories.\n\n"
+            "📌 Remember: These are possible effects of El Niño. Actual impacts "
+            "vary depending on location and the strength of the event.",
+
+            "⚠️ **Mga Posibleng Epekto ng El Niño:**\n"
+            "Ang El Niño ay maaaring magdulot ng mas mainit na temperatura at "
+            "mas kaunting ulan kaysa sa normal. Maaari itong makaapekto sa "
+            "ating komunidad sa iba't ibang paraan:\n\n"
+            "• **Kakulangan sa Tubig:** Ang kaunting pag-ulan ay maaaring "
+            "magpababa sa suplay ng tubig para sa mga tahanan at sakahan.\n"
+            "• **Matinding Init:** Maaaring tumaas ang panganib ng dehydration, "
+            "heat exhaustion, at heatstroke.\n"
+            "• **Pagkalugi sa Agrikultura:** Ang kakulangan sa tubig ay maaaring "
+            "makasama sa paglaki ng mga pananim at magpababa ng ani.\n"
+            "• **Epekto sa Alagang Hayop:** Ang matinding init at kakulangan "
+            "sa tubig ay maaaring makaapekto sa kalusugan ng mga alagang hayop.\n"
+            "• **Epekto sa Kapaligiran:** Ang tuyong kondisyon ay maaaring "
+            "magpataas ng panganib ng grass fire at forest fire.\n"
+            "• **Epekto sa Ekonomiya:** Ang pagbaba ng produksyon sa agrikultura "
+            "ay maaaring makaapekto sa kita ng mga magsasaka at suplay ng pagkain.\n\n"
+            "💡 **Paano makapaghahanda?** Magtipid ng tubig, uminom nang sapat, "
+            "protektahan ang mga pananim at alagang hayop, at sundin ang mga "
+            "opisyal na abiso ng PAGASA.\n\n"
+            "📌 Tandaan: Mga posibleng epekto lamang ang mga ito. Nag-iiba ang "
+            "aktuwal na epekto depende sa lugar at lakas ng El Niño."
         )
 
     # 11. Knowledge-base fallback: if none of the rules above matched,
