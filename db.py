@@ -31,7 +31,10 @@ def _get_conn():
     conn.row_factory = sqlite3.Row
     return conn
 
-
+def get_db():
+    """Context-manager friendly alias for _get_conn."""
+    return _get_conn()
+  
 def init_db():
     """Create the tables if they don't already exist."""
     conn = _get_conn()
@@ -631,26 +634,37 @@ def log_admin_activity(actor_name, action, entity, entity_id=None):
 def get_admin_dashboard():
     conn = _get_conn()
     try:
+        total_chats = conn.execute("SELECT COUNT(DISTINCT session_id) FROM chatlogs").fetchone()[0]
+        total_kb = conn.execute("SELECT COUNT(*) FROM knowledge_base WHERE status = 'Published'").fetchone()[0]
+        total_ann = conn.execute("SELECT COUNT(*) FROM announcements WHERE status = 'Published'").fetchone()[0]
+        total_feed = conn.execute("SELECT COUNT(*) FROM community_feedback").fetchone()[0]
+        
+        # Recent activity logs
+        recent_activity = []
+        try:
+            rows = conn.execute(
+                "SELECT actor_name, action, entity, entity_id, created_at "
+                "FROM admin_activity ORDER BY id DESC LIMIT 10"
+            ).fetchall()
+            recent_activity = [dict(r) for r in rows]
+        except Exception:
+            pass
+
         return {
-            "knowledge_articles": conn.execute(
-                "SELECT COUNT(*) FROM knowledge_base"
-            ).fetchone()[0],
-            "published_announcements": conn.execute(
-                "SELECT COUNT(*) FROM announcements WHERE status = 'Published' "
-                "AND (expires_at IS NULL OR date(expires_at) >= date('now'))"
-            ).fetchone()[0],
-            "pending_feedback": conn.execute(
-                "SELECT COUNT(*) FROM community_feedback WHERE status = 'Pending'"
-            ).fetchone()[0],
-            "admin_accounts": conn.execute(
-                "SELECT COUNT(*) FROM admin_users"
-            ).fetchone()[0],
-            "recent_activity": [
-                dict(row) for row in conn.execute(
-                    "SELECT actor_name, action, entity, entity_id, created_at "
-                    "FROM admin_activity ORDER BY id DESC LIMIT 10"
-                ).fetchall()
-            ],
+            "total_chat_sessions": total_chats,
+            "total_knowledge": total_kb,
+            "total_announcements": total_ann,
+            "total_feedback": total_feed,
+            "recent_activity": recent_activity
+        }
+    except Exception as e:
+        print(f"[get_admin_dashboard error]: {e}")
+        return {
+            "total_chat_sessions": 0,
+            "total_knowledge": 0,
+            "total_announcements": 0,
+            "total_feedback": 0,
+            "recent_activity": []
         }
     finally:
         conn.close()
