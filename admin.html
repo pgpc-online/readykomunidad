@@ -446,51 +446,62 @@
     <!-- ================= MODALS ================= -->
 
     <!-- Knowledge Base Modal -->
+ <!-- Knowledge Base Modal -->
     <div id="modal-kb" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 id="modal-kb-title" class="font-bold text-slate-900 text-sm">Add Knowledge Entry</h3>
-                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                <div>
+                    <h3 id="modal-kb-title" class="font-bold text-slate-900 text-sm">Add Knowledge Entry</h3>
+                    <p class="text-[11px] text-slate-500">Add or edit bilingual responses for chatbot fallback</p>
+                </div>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
-            <form onsubmit="saveKnowledge(event)" class="space-y-3 text-xs">
+            <form onsubmit="saveKnowledge(event)" class="space-y-3.5 text-xs">
                 <input type="hidden" id="kb-id">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Category</label>
-                        <input type="text" id="kb-category" required placeholder="e.g. Health, Agriculture, Water" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Status</label>
-                        <select id="kb-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
-                            <option value="Published">Published</option>
-                            <option value="Draft">Draft</option>
+                
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Topic Category <span class="text-rose-500">*</span></label>
+                    <input type="text" id="kb-category" required placeholder="e.g. Health, Agriculture, Water Conservation" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">User Question / Prompt Pattern <span class="text-rose-500">*</span></label>
+                    <input type="text" id="kb-question" required placeholder="e.g. What to do during extreme heat?" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">
+                        Answer (English) <span class="text-rose-500">*</span>
+                    </label>
+                    <textarea id="kb-answer-en" rows="3" required placeholder="Provide the response in English..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">
+                        Answer (Filipino / Tagalog) <span class="text-rose-500">*</span>
+                    </label>
+                    <textarea id="kb-answer-tl" rows="3" required placeholder="Ibigay ang tugon sa wikang Filipino / Tagalog..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Keywords / Match Triggers</label>
+                    <input type="text" id="kb-keywords" placeholder="Comma-separated: e.g. init, dehydration, rhu, gamot" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+
+                <!-- Footer Bar with Status Positioned Naturally Before Submit -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <label for="kb-status" class="font-semibold text-slate-600 text-xs">Publication Status:</label>
+                        <select id="kb-status" class="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="Published">Published (Live)</option>
+                            <option value="Draft">Draft (Hidden)</option>
                             <option value="Archived">Archived</option>
                         </select>
                     </div>
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Question / Prompt</label>
-                    <input type="text" id="kb-question" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-                </div>
-                <div>
-    <label class="block font-semibold text-slate-700 mb-1">
-        Answer (English) <span class="text-rose-500">*</span>
-    </label>
-    <textarea id="kb-answer-en" rows="3" required placeholder="Provide the response in English..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs"></textarea>
-</div>
-<div>
-    <label class="block font-semibold text-slate-700 mb-1">
-        Answer (Filipino / Tagalog) <span class="text-rose-500">*</span>
-    </label>
-    <textarea id="kb-answer-tl" rows="3" required placeholder="Ibigay ang tugon sa wikang Filipino / Tagalog..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs"></textarea>
-</div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Keywords (Comma separated)</label>
-                    <input type="text" id="kb-keywords" placeholder="e.g. heat, hydration, rhu" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-                </div>
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Save Article</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 shadow-xs transition">Save Article</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -536,46 +547,57 @@
     </div>
 
     <!-- Admin User Modal -->
+    <!-- Admin User Modal -->
     <div id="modal-user" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4 animate-fade-in">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 id="modal-user-title" class="font-bold text-slate-900 text-sm">Create Administrator</h3>
-                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                <div>
+                    <h3 id="modal-user-title" class="font-bold text-slate-900 text-sm">Create Administrator</h3>
+                    <p class="text-[11px] text-slate-500">Add or modify console access credentials</p>
+                </div>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
-            <form onsubmit="saveUser(event)" class="space-y-3 text-xs">
+            <form onsubmit="saveUser(event)" class="space-y-3.5 text-xs">
                 <input type="hidden" id="user-edit-id">
+                
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
-                    <input type="text" id="user-form-name" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                    <label class="block font-semibold text-slate-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
+                    <input type="text" id="user-form-name" required placeholder="e.g. Maria Santos" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
+
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Email</label>
-                    <input type="email" id="user-form-email" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                    <label class="block font-semibold text-slate-700 mb-1">Username / Account ID <span class="text-rose-500">*</span></label>
+                    <input type="text" id="user-form-email" required placeholder="e.g. admin, admin1, or maria@garcia.gov" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <p class="text-[10px] text-slate-400 mt-1">Can be a simple username (e.g. <code>admin1</code>) or email address.</p>
                 </div>
+
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Password</label>
-                    <input type="password" id="user-form-password" minlength="12" placeholder="Leave empty to retain existing" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                    <input type="password" id="user-form-password" minlength="4" placeholder="Min 4 characters (e.g. admin123)" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Role</label>
-                        <select id="user-form-role" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
-                            <option value="Admin">Admin</option>
-                            <option value="Content Manager">Content Manager</option>
-                            <option value="Super Admin">Super Admin</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Status</label>
-                        <select id="user-form-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Role Permission</label>
+                    <select id="user-form-role" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <option value="Admin">Admin (Can edit content)</option>
+                        <option value="Content Manager">Content Manager (Advisories only)</option>
+                        <option value="Super Admin">Super Admin (Full system control)</option>
+                    </select>
+                </div>
+
+                <!-- Footer with Account Status and Actions -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <label for="user-form-status" class="font-semibold text-slate-600 text-xs">Status:</label>
+                        <select id="user-form-status" class="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none">
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                         </select>
                     </div>
-                </div>
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Save Account</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 shadow-xs transition">Save Account</button>
+                    </div>
                 </div>
             </form>
         </div>
