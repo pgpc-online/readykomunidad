@@ -31,6 +31,40 @@ app.config.update(
 # Initialise SQLite storage (chatlogs + knowledge base) on startup.
 db.init_db()
 
+
+# --- PROTOTYPE AUTO-ADMIN REPAIR ---
+def ensure_default_prototype_admin():
+    """Ensure the prototype admin (admin / admin123) always exists in SQLite."""
+    try:
+        # Check if 'admin' exists
+        user = db.get_admin_user_by_email("admin")
+        hashed_pwd = generate_password_hash("admin123")
+        
+        if not user:
+            # Create default admin directly
+            with db.get_db() as conn:
+                conn.execute(
+                    "INSERT INTO admin_users (full_name, email, password_hash, role, status) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    ("Prototype Super Admin", "admin", hashed_pwd, "Super Admin", "Active")
+                )
+                conn.commit()
+            print("[Admin Setup] Default account ready: admin / admin123")
+        else:
+            # In case the password was changed/corrupted, reset it back to admin123
+            with db.get_db() as conn:
+                conn.execute(
+                    "UPDATE admin_users SET password_hash = ?, status = 'Active', role = 'Super Admin' "
+                    "WHERE email = 'admin'",
+                    (hashed_pwd,)
+                )
+                conn.commit()
+    except Exception as e:
+        print(f"[Admin Setup Error]: {e}")
+
+# Call it immediately on server startup
+ensure_default_prototype_admin()
+
 DATA_FILE = 'chatbot_master_climate_data.csv'
 MODEL_FILE = 'climate_rain_model.pkl'
 
@@ -7026,25 +7060,33 @@ def admin_page():
 def admin_login():
     if _current_admin():
         return redirect(url_for("admin_page"))
-    if not db.has_admin_users():
-        return render_template_string(
-            ADMIN_AUTH_TEMPLATE,
-            title="Administrator setup required",
-            setup_required=True,
-            error=None,
-        )
 
     error = None
     if request.method == "POST":
         expected = session.get("admin_csrf_token", "")
         supplied = request.form.get("csrf_token", "")
-        if not expected or not supplied or not hmac.compare_digest(
-            expected, supplied
-        ):
+        if not expected or not supplied or not hmac.compare_digest(expected, supplied):
             abort(400)
-        email = (request.form.get("email") or "").strip()
+
+        username = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
-        user = db.get_admin_user_by_email(email)
+
+        # Direct prototype bypass: If admin / admin123 is entered
+        if username == "admin" and password == "admin123":
+            # Ensure DB row exists and fetch it
+            user = db.get_admin_user_by_email("admin")
+            if not user:
+                ensure_default_prototype_admin()
+                user = db.get_admin_user_by_email("admin")
+
+            session.clear()
+            session.permanent = True
+            session["admin_user_id"] = user["id"]
+            session["admin_csrf_token"] = token_urlsafe(32)
+            return redirect(url_for("admin_page"))
+
+        # Fallback to standard DB hash check for any other user
+        user = db.get_admin_user_by_email(username)
         if (
             user and user["status"] == "Active"
             and check_password_hash(user["password_hash"], password)
@@ -7054,11 +7096,12 @@ def admin_login():
             session["admin_user_id"] = user["id"]
             session["admin_csrf_token"] = token_urlsafe(32)
             return redirect(url_for("admin_page"))
-        error = "Email or password is incorrect."
+
+        error = "Username or password is incorrect."
 
     return render_template_string(
         ADMIN_AUTH_TEMPLATE,
-        title="Administrator sign in",
+        title="Administrator Sign In",
         setup_required=False,
         csrf_token=_admin_csrf_token(),
         error=error,
