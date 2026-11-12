@@ -6947,12 +6947,14 @@ def _optional_text(data, key, label, max_length):
 
 
 def _valid_email(value):
+    """Allow simple usernames (e.g., admin, admin1) or standard email formats."""
     if not value or not isinstance(value, str):
         return False
     val = value.strip().lower()
-    if val == "admin":
+    # If it has no spaces and is at least 3 characters, treat as valid username or email
+    if len(val) >= 3 and not re.search(r'\s', val):
         return True
-    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", val))
+    return False
 
 
 @app.cli.command("create-admin")
@@ -6971,8 +6973,8 @@ def create_admin_command():
         raise click.ClickException("Name must contain 1 to 100 characters.")
     if not _valid_email(email) or len(email) > 254:
         raise click.ClickException("Enter a valid email address.")
-    if len(password) < 12:
-        raise click.ClickException("Password must contain at least 12 characters.")
+    if len(password) < 6:
+        raise click.ClickException("Password must contain at least 6 characters.")
     user_id = db.create_initial_admin(
         full_name, email, generate_password_hash(password)
     )
