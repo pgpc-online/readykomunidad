@@ -6851,13 +6851,10 @@ ADMIN_AUTH_TEMPLATE = """
 <main>
   <h1>{{ title }}</h1>
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-  {% if setup_required %}
-    <p class="muted">No administrator account exists yet. Create the first Super Admin on the server with
-      <code>flask --app web_app create-admin</code>.</p>
-  {% else %}
+  
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="email">Email address</label>
+    <label for="email">Username</label>
     <input id="email" name="email" type="email" autocomplete="username" required maxlength="254">
     <label for="password">Password</label>
     <input id="password" name="password" type="password"
