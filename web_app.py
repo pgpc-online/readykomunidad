@@ -2742,7 +2742,12 @@ def chatbot_event_router(user_input, session_id=None):
             "5. Nise-save ang tanong at sagot sa SQLite\n"
             "6. Nire-render ang response pabalik sa chat UI"
         )
-
+# Clothing / What to wear
+    if any(k in clean_input for k in [
+        "isuot", "suotin", "suutin", "idamit", "damit", "anong isusuot", 
+        "ano ang dapat isuot", "kasuotan", "what to wear", "what should i wear", "clothes to wear"
+    ]):
+        return handle_clothing_tips()
     # 0. ReadyKomunidad-related questions
     # AFTER: Use regex word boundaries (\bano ka\b) so it won't match inside "gaano katagal"
     if any(re.search(r'\b' + re.escape(k) + r'\b', clean_input) for k in [
@@ -4218,7 +4223,21 @@ def chatbot_event_router(user_input, session_id=None):
             "📞 **PAGASA Hotline:** **1553** | **Website:** [www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph/)"
         )
     # Standalone Rainfall / Rain overview (prevents fallback to PAGASA)
-    if clean_input in ["ulan", "rain", "rainfall", "pag-ulan", "weather"] or any(k in clean_input for k in ["records ng ulan", "rainfall record", "rain record"]):
+    # ---------------------------------------------------------
+    # DEFINITIONS: RAIN vs RAINFALL vs ALL-TIME RECORDS
+    # ---------------------------------------------------------
+    # 1. Exact or clear query for "rain" / "ano ang ulan"
+    if clean_input in ["rain", "ulan", "ano ang ulan", "what is rain", "definition of rain"]:
+        return handle_rain_definition()
+
+    # 2. Exact or clear query for "rainfall" / "ano ang rainfall" / "pag-ulan"
+    if clean_input in ["rainfall", "pag-ulan", "ano ang rainfall", "ano ang pag-ulan", "what is rainfall", "definition of rainfall"]:
+        return handle_rainfall_definition()
+
+    # 3. Explicit request for rain records
+    if any(k in clean_input for k in [
+        "records ng ulan", "rainfall record", "rain record", "rainfall records", "rain records"
+    ]):
         return handle_rain_query(padre_garcia_only)
     # CL-NEW-5. How long does La Niña last?
     if any(k in clean_input for k in [
@@ -4922,12 +4941,7 @@ def chatbot_event_router(user_input, session_id=None):
             "• Sundin ang anumang water rationing schedules na itinakda ng inyong local government\n"
             "• Iulat agad sa inyong LGU ang mga water leaks sa mga pampublikong pipes"
         )
-        # Clothing / What to wear
-    if any(k in clean_input for k in [
-        "isuot", "suotin", "suutin", "idamit", "damit", "anong isusuot", 
-        "ano ang dapat isuot", "kasuotan", "what to wear", "what should i wear", "clothes to wear"
-    ]):
-        return handle_clothing_tips()
+        
         # General First Aid & ORS
     if any(k in clean_input for k in ["paunang lunas", "first aid", "first-aid"]) and not any(k in clean_input for k in ["heatstroke", "heat stroke", "exhaustion", "dehydration"]):
         return handle_first_aid_general()
@@ -6955,17 +6969,17 @@ def _knowledge_payload(data):
         ("question", "Question", 200),
         ("category", "Category", 80),
         ("answer_en", "English answer", 10000),
+        ("answer_tl", "Filipino answer", 10000),  # <--- Now strictly required!
     ]:
         fields[key], error = _required_text(data, key, label, limit)
         if error:
             return None, error
-    for key, label, limit in [
-        ("answer_tl", "Filipino answer", 10000),
-        ("keywords", "Keywords", 1000),
-    ]:
-        fields[key], error = _optional_text(data, key, label, limit)
-        if error:
-            return None, error
+
+    # Keywords remain optional
+    fields["keywords"], error = _optional_text(data, "keywords", "Keywords", 1000)
+    if error:
+        return None, error
+
     status, error = _valid_status(
         data.get("status", "Draft"), {"Draft", "Published", "Archived"}
     )
@@ -6973,7 +6987,7 @@ def _knowledge_payload(data):
         return None, error
     fields["status"] = status
     return fields, None
-
+    
 
 def _announcement_payload(data):
     fields = {}
