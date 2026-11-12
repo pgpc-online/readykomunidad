@@ -7177,8 +7177,8 @@ def admin_settings():
     # 2. Password change (Optional and verified only when requested)
     new_password = data.get("new_password", "")
     if new_password:
-        if not isinstance(new_password, str) or len(new_password) < 12:
-            return jsonify({"error": "New password must be at least 12 characters."}), 400
+        if not isinstance(new_password, str) or len(new_password) < 6:
+            return jsonify({"error": "New password must be at least 6 characters."}), 400
         current_password = data.get("current_password", "")
         if not current_password or not check_password_hash(actor["password_hash"], current_password):
             return jsonify({"error": "Current password is incorrect."}), 400
@@ -7393,8 +7393,8 @@ def admin_users():
     if error or not _valid_email(email):
         return jsonify({"error": error or "Enter a valid email address."}), 400
     password, error = _required_text(data, "password", "Password", 256)
-    if error or len(password) < 12:
-        return jsonify({"error": error or "Password must be at least 12 characters."}), 400
+    if error or len(password) < 6:
+        return jsonify({"error": error or "Password must be at least 6 characters."}), 400
     role, error = _valid_status(
         data.get("role"), {"Admin", "Content Manager", "Super Admin"}, "Role"
     )
@@ -7462,8 +7462,8 @@ def admin_user_item(user_id):
         updates["status"] = status
     new_password = data.get("password")
     if new_password:
-        if not isinstance(new_password, str) or len(new_password) < 12:
-            return jsonify({"error": "Password must be at least 12 characters."}), 400
+        if not isinstance(new_password, str) or len(new_password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters."}), 400
         updates["password_hash"] = generate_password_hash(new_password)
     result = db.update_admin_user(user_id, updates)
     if result == "missing":
