@@ -174,9 +174,9 @@
                     <i class="fa-solid fa-shield-halved text-sm"></i>
                 </div>
                 <div>
-                    <h2 class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Padre Garcia Community Hub</h2>
-                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Official Advisories & Citizen Voice</p>
-                </div>
+    <h2 class="text-sm font-bold text-slate-900 dark:text-white leading-tight">ReadyKomunidad Hub</h2>
+    <p class="text-[11px] text-slate-400 dark:text-slate-500">Community Advisories & Citizen Feedback</p>
+</div>
             </div>
             <button type="button" onclick="closeCommunitySidebar()" aria-label="Close panel"
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -226,7 +226,7 @@
                     <i class="fa-solid fa-user-shield text-brand-600 dark:text-brand-400 text-sm mt-0.5 shrink-0"></i>
                     <div>
                         <strong class="font-semibold block">100% Anonymous & Direct</strong>
-                        Your feedback or bug report helps improve early climate warnings for Padre Garcia residents. No login or identity is required.
+                        Your feedback or bug report helps the ReadyKomunidad team improve climate preparedness resources for Padre Garcia. No account or identity is required.
                     </div>
                 </div>
 
@@ -273,15 +273,16 @@
         </div>
 
         <!-- Drawer Quick Emergency Contacts Footer -->
-        <footer class="border-t border-slate-100 dark:border-slate-800/80 px-5 py-3.5 bg-slate-50/70 dark:bg-slate-900/60 shrink-0 text-xs">
-            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span class="flex items-center gap-1.5 font-medium">
-                    <i class="fa-solid fa-phone-flip text-rose-500 text-[11px]"></i>
-                    <span>MDRRMO: (043) 515-7424</span>
-                </span>
-                <span class="text-[11px] text-slate-400">ReadyKomunidad v1.0</span>
-            </div>
-        </footer>
+        <!-- Drawer Quick Info Footer -->
+<footer class="border-t border-slate-100 dark:border-slate-800/80 px-5 py-3.5 bg-slate-50/70 dark:bg-slate-900/60 shrink-0 text-xs">
+    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
+        <span class="flex items-center gap-1.5 font-medium">
+            <i class="fa-solid fa-circle-info text-brand-500 text-[11px]"></i>
+            <span>ReadyKomunidad Team</span>
+        </span>
+        <span class="text-[11px] text-slate-400">Padre Garcia Climate Hub</span>
+    </div>
+</footer>
     </aside>
 
     <!-- Main Chat Workspace -->
@@ -718,7 +719,7 @@
                 list.innerHTML = `
                     <div class="py-8 text-center text-xs text-slate-400 dark:text-slate-500 flex flex-col items-center gap-2">
                         <i class="fa-solid fa-circle-notch fa-spin text-base text-amber-500"></i>
-                        <span>Loading official bulletins...</span>
+                        <span>Loading...</span>
                     </div>`;
             }
             try {
@@ -858,7 +859,7 @@
 
                 form.reset();
                 updateCharCount(form.elements.message);
-                status.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Thank you! Message received by MDRRMO.</span>`;
+                status.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Thank you! Your feedback was received by the ReadyKomunidad Team.</span>`;
                 setTimeout(() => { status.innerText = ''; }, 4500);
             } catch (error) {
                 status.innerHTML = `<span class="text-rose-500 font-semibold">${escapeHTML(error.message)}</span>`;
