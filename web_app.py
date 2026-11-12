@@ -2490,6 +2490,63 @@ def handle_ors_guide():
         "• **1/2 kutsarita** ng asin\n\n"
         "Haluing mabuti hanggang matunaw. Painumin nang paunti-unti. Itapon ang timpla kapag lumagpas na sa 24 oras."
     )
+def handle_rain_definition():
+    conversation_state["last_topic"] = "rain_definition"
+    return L(
+        "🌧️ **What is Rain?**\n\n"
+        "Rain is water that falls from clouds to the ground in the form of droplets.\n\n"
+        "During El Niño, rainfall in many parts of the Philippines may decrease, resulting in hotter and drier conditions. "
+        "However, rain can still occur due to thunderstorms, monsoon winds, and tropical cyclones.",
+
+        "🌧️ **Ano ang Ulan?**\n\n"
+        "Ang ulan ay tubig na pumapatak mula sa mga ulap patungo sa lupa sa anyo ng mga patak (droplets).\n\n"
+        "Sa panahon ng El Niño, maaaring bumaba ang ulan sa maraming bahagi ng Pilipinas na nagdudulot ng mas mainit at tuyong panahon. "
+        "Gayunpaman, maaari pa ring magkaroon ng ulan dulot ng mga localized thunderstorms, habagat o amihan, at mga bagyo."
+    )
+
+def handle_rainfall_definition():
+    conversation_state["last_topic"] = "rainfall_definition"
+    return L(
+        "🌧️ **Rainfall During El Niño**\n\n"
+        "Rainfall refers to the amount of rain received in a particular area over a specific period, usually measured in millimeters (mm).\n\n"
+        "During El Niño, rainfall is often below normal, which means some areas may experience less rain, longer dry periods, and drought.\n\n"
+        "### 📡 Latest PAGASA Outlook – November 2026\n\n"
+        "According to PAGASA:\n"
+        "• Below-normal to way-below-normal rainfall is expected across most parts of the Philippines.\n"
+        "• Some areas may experience dry spells or drought.\n"
+        "• Rain is still possible due to tropical cyclones and other weather systems.\n\n"
+        "### 🌱 Why is rainfall important?\n"
+        "• Provides water for crops and livestock.\n"
+        "• Helps replenish rivers, dams, and groundwater.\n"
+        "• Supports household water supply.\n"
+        "• Helps maintain soil moisture.\n\n"
+        "**How can we prepare?**\n"
+        "1. Store water safely.\n"
+        "2. Avoid wasting water.\n"
+        "3. Follow weather and rainfall advisories.\n"
+        "4. Help farmers conserve irrigation water.\n\n"
+        "For updated rainfall information, visit [PAGASA Climate Monitoring](https://www.pagasa.dost.gov.ph/index.php/climate).",
+
+        "🌧️ **Pag-ulan sa Panahon ng El Niño (Rainfall)**\n\n"
+        "Ang rainfall (sukat ng pag-ulan) ay tumutukoy sa dami ng ulan na natatanggap sa isang partikular na lugar sa loob ng isang takdang panahon, na karaniwang sinusukat sa millimeters (mm).\n\n"
+        "Sa panahon ng El Niño, ang pag-ulan ay kadalasang mas mababa kaysa normal (below normal), na nagdudulot ng mas kaunting ulan, mas mahahabang dry spells, at tagtuyot.\n\n"
+        "### 📡 Pinakabagong PAGASA Outlook – Nobyembre 2026\n\n"
+        "Ayon sa PAGASA:\n"
+        "• Below-normal hanggang way-below-normal na pag-ulan ang inaasahan sa malaking bahagi ng Pilipinas.\n"
+        "• Ang ilang mga lugar ay maaaring makaranas ng dry spells o tagtuyot.\n"
+        "• Maaari pa ring magkaroon ng pag-ulan dulot ng mga bagyo at localized thunderstorms.\n\n"
+        "### 🌱 Bakit mahalaga ang pag-ulan?\n"
+        "• Nagbibigay ng tubig sa mga pananim at alagang hayop.\n"
+        "• Tumutulong mapuno muli ang mga ilog, dam, at balon.\n"
+        "• Sumusuporta sa supply ng tubig ng mga tahanan.\n"
+        "• Nagpapanatili ng moisture sa lupa.\n\n"
+        "**Paano tayo makapaghahanda?**\n"
+        "1. Mag-imbak ng tubig nang ligtas.\n"
+        "2. Iwasan ang pag-aaksaya ng tubig.\n"
+        "3. Subaybayan ang mga advisory sa panahon at pag-ulan.\n"
+        "4. Tulungan ang mga magsasaka sa pagtitipid ng tubig sa irigasyon.\n\n"
+        "Para sa napapanahong impormasyon, bisitahin ang [PAGASA Climate Monitoring](https://www.pagasa.dost.gov.ph/index.php/climate)."
+        )
 
 def chatbot_event_router(user_input, session_id=None):
     global conversation_state
@@ -2816,7 +2873,7 @@ def chatbot_event_router(user_input, session_id=None):
             "• *'Ano ang hotline ng MDRRMO at RHU?'*\n"
             "• *'Saan maaaring humingi ng tulong ang mga magsasaka?'*"
         )
-    if any(k in clean_input for k in ["ai ka ba", "are you ai", "are you an ai", "are you a bot", "are you a chatbot", "are you a robot"]):
+    if any(k in clean_input for k in ["ai ka ba", "are you ai", "are you an ai", "are you a bot", "are you a chatbot", "are you a robot", "chatbot ka ba", "chat bot ka ba"]):
             return L(
                 "🤖 Yes! I am an **AI chatbot!** called **ReadyKomunidad**\n\n"
                 "I am designed to provide information and assistance about El Niño, preparedness for extreme heat and water shortages, and community safety. 🌱"
@@ -3279,7 +3336,7 @@ def chatbot_event_router(user_input, session_id=None):
         # ---- insult handler ----
     if any(k in clean_input for k in [
         "bobo", "tanga", "gago", "tarantado", "ulol", "stupid", "idiot",
-        "dumb", "useless", "walang kwenta", "bwisit"
+        "dumb", "useless", "walang kwenta", "bwisit", "tanga"
     ]):
         return L(
             "I'm sorry if I wasn't able to help the way you wanted. 🙏 I'm still learning, and I can only answer "
