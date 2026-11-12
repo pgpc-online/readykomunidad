@@ -1,13 +1,32 @@
-from flask import Flask, request, jsonify, render_template_string
+from flask import (
+    Flask, abort, jsonify, redirect, render_template_string, request, send_from_directory,
+    session, url_for,
+)
+from functools import wraps
+from datetime import date, timedelta
+from secrets import token_hex, token_urlsafe
+from werkzeug.security import check_password_hash, generate_password_hash
+import click
 import pandas as pd
 import re
 import random
 import os
 import uuid
 import joblib
+import hmac
+import sqlite3
 import db
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "").lower() in {
+        "1", "true", "yes",
+    },
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+)
 
 # Initialise SQLite storage (chatlogs + knowledge base) on startup.
 db.init_db()
@@ -82,7 +101,7 @@ conversation_state = {
 
 # Common Tagalog words/particles that signal the user is speaking Filipino
 TAGALOG_MARKERS = [
-    "ano", "ang", "sa", "na", "ay", "mga", "ng", "paano", "bakit", "sino",
+    "ano", "ang", "sa", "na", "ay", "mga", "ng", "paano", "pano", "bakit", "sino",
     "kailan", "magkano", "ilan", "hindi", "oo", "hulaan", "prediksyon",
     "tungkol", "gumawa", "nagawa", "marunong", "magtagalog", "magfilipino",
     "ihambing", "pagkukumpara", "ulan", "pag-ulan", "temperatura", "init",
@@ -2566,7 +2585,7 @@ def chatbot_event_router(user_input):
             "💡 *Ang layunin ko ay simple: tulungan ang komunidad na manatiling informed at handa bago dumating ang El Niño.*"
         )
 
-    if any(k in clean_input for k in ["what can you do", "what can this do", "ano magagawa mo", "what are you for", "anong kaya mo", "how can you help", "what can readykomunidad do?", "what can ReadyKomunidad do?", "ano ang magagawa mo ", "anong magagawa mo", "what topics can you answer", "what can i ask you", "what topics do you cover", "what questions can you answer", "anong mga tanong", "anong paksa", "what subjects", "what can you help me with", "anong maitutulong mo", "ano ang mga kaya mong gawin", "paano mo ako matutulungan"]):
+    if any(k in clean_input for k in ["what can you do", "what can this do", "ano magagawa mo", "what are you for", "anong kaya mo", "how can you help", "what can readykomunidad do?", "what can ReadyKomunidad do?", "ano ang magagawa mo ", "anong magagawa mo", "what topics can you answer", "what can i ask you", "what topics do you cover", "what questions can you answer", "anong mga tanong", "anong paksa", "what subjects", "what can you help me with", "anong maitutulong mo", "ano ang mga kaya mong gawin", "paano mo ako matutulungan", "pano moko matutulungan", "paano moko matutulungan", "pano mo ko matutulungan", "paano mo ko matutulungan", "pano moko matutulugan", "paano moko matutulugan", "paano mo ko matutulugan"]):
         return L(
             "🌦️ **What Can ReadyKomunidad Do?**\n\n"
             "• **Understanding El Niño** — What El Nino is, its possible effects, and how to prepare for it.\n"
@@ -3432,11 +3451,17 @@ def chatbot_event_router(user_input):
         return L(
             "☀️ **What Is a Super El Niño?**\n\n"
             "“Super El Niño” is an informal way to describe a **very strong El Niño event**. It is not a separate climate phenomenon, and the term does not have one universally agreed official threshold. Scientists monitor El Niño using ocean measurements such as the **ONI (Oceanic Niño Index)**.\n\n"
+            "### 🌏 Latest update\n"
+            "**PAGASA update · November 4, 2026**\n"
+            "According to PAGASA, a **Very Strong El Niño** is currently occurring in the tropical Pacific. It is expected to continue through the first half of 2027 and may reach its strongest phase before the end of 2026. Forecasts can change, so check PAGASA for newer advisories.\n\n"
             "Possible effects include hotter conditions in some places, reduced rainfall or longer dry spells, water-supply concerns, and stress on crops and livestock. Effects vary by location, so these conditions are not guaranteed everywhere.\n\n"
             "**How to prepare:** conserve and safely store water, avoid prolonged exposure to the sun, drink enough water, protect crops and animals from heat, and follow official **PAGASA** advisories.\n\n"
             "💡 *A strong event does not mean every community will experience the same impacts.*",
             "☀️ **Ano ang Super El Niño?**\n\n"
             "Ang “Super El Niño” ay impormal na tawag sa **napakalakas na El Niño event**. Hindi ito hiwalay na climate phenomenon, at walang iisang opisyal na sukatan na ginagamit ng lahat para sa salitang “super.” Sinusubaybayan ng mga siyentipiko ang El Niño gamit ang mga sukat sa karagatan gaya ng **ONI (Oceanic Niño Index)**.\n\n"
+            "### 🌏 Ano ang latest na balita?\n"
+            "**PAGASA update · November 4, 2026**\n"
+            "Ayon sa PAGASA, isang **Very Strong El Niño** ang kasalukuyang nararanasan sa tropical Pacific. Inaasahang magpapatuloy ito hanggang sa unang kalahati ng 2027 at maaaring umabot sa pinakamalakas nitong yugto bago matapos ang 2026. Maaaring magbago ang forecast, kaya subaybayan ang mga pinakabagong advisory ng PAGASA.\n\n"
             "Maaaring magdulot ito ng matinding init, mas kaunting ulan o mas mahabang tagtuyot, kakulangan sa tubig, at epekto sa mga pananim at alagang hayop. Nagkakaiba ang epekto depende sa lugar, kaya hindi pare-pareho ang mararanasan ng bawat komunidad.\n\n"
             "**Paano maghanda:** magtipid at mag-imbak nang ligtas ng malinis na tubig, iwasan ang matagal na pagbibilad sa araw, uminom ng sapat na tubig, protektahan sa init ang mga pananim at alagang hayop, at subaybayan ang opisyal na **PAGASA** advisories.\n\n"
             "💡 *Hindi ibig sabihin ng malakas na event ay pare-pareho ang epekto sa lahat ng lugar.*"
@@ -6297,6 +6322,26 @@ def chatbot_event_router(user_input):
             "aktuwal na epekto depende sa lugar at lakas ng El Niño."
         )
 
+    if any(term in clean_input for term in [
+        "announcement", "announcements", "latest news", "community news",
+        "anunsyo", "abiso", "mga balita",
+    ]):
+        announcements = db.list_announcements(public_only=True)
+        if not announcements:
+            return L(
+                "There are no current community announcements.",
+                "Wala pang kasalukuyang anunsyo para sa komunidad."
+            )
+        heading = (
+            "📢 **Mga Anunsyo sa Komunidad**"
+            if conversation_state.get("lang") == "tl"
+            else "📢 **Community Announcements**"
+        )
+        lines = [heading]
+        for item in announcements[:5]:
+            lines.append(f"\n**{item['title']}**\n{item['content']}")
+        return "\n".join(lines)
+
     # 11. Knowledge-base fallback: if none of the rules above matched,
     # search the SQLite knowledge base before giving up.
     try:
@@ -6387,6 +6432,19 @@ def chat():
     data = request.get_json() or {}
     message = data.get('message', '')
     session_id = data.get('session_id') or str(uuid.uuid4())
+    if not isinstance(message, str) or not message.strip():
+        return jsonify({"error": "A non-empty message is required."}), 400
+
+    settings = db.get_admin_settings()
+    if not settings["chatbot_available"] or settings["maintenance_mode"]:
+        conversation_state["lang"] = detect_language(message.lower())
+        return jsonify({
+            "reply": L(
+                "The chatbot is temporarily unavailable for maintenance. Please try again later.",
+                "Pansamantalang hindi available ang chatbot dahil sa maintenance. Subukan muli mamaya."
+            ),
+            "session_id": session_id,
+        })
 
     # 1. Generate normal chatbot reply
     reply = chatbot_event_router(message)
@@ -6431,6 +6489,616 @@ def history():
         ]
     })
 
+
+ADMIN_AUTH_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} | ReadyKomunidad</title>
+  <style>
+    body{font:16px Arial,sans-serif;background:#f5f7fb;color:#263445;
+      margin:0;min-height:100vh;display:grid;place-items:center}
+    main{background:white;padding:2rem;border-radius:12px;width:min(420px,90vw);
+      box-shadow:0 12px 40px #173a5a18}
+    h1{font-size:1.5rem;margin-top:0}label{display:block;margin:1rem 0 .4rem}
+    input{box-sizing:border-box;width:100%;padding:.75rem;border:1px solid #ccd5df;
+      border-radius:6px}button{margin-top:1.2rem;padding:.8rem 1rem;width:100%;
+      border:0;border-radius:6px;background:#174b7a;color:white;font-weight:600}
+    .error{color:#a4262c;background:#fde7e9;padding:.7rem;border-radius:6px}
+    p{line-height:1.5}.muted{color:#687785;font-size:.9rem}
+  </style>
+</head>
+<body>
+<main>
+  <h1>{{ title }}</h1>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if setup_required %}
+    <p class="muted">No administrator account exists yet. Create the first Super Admin on the server with
+      <code>flask --app web_app create-admin</code>.</p>
+  {% else %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" autocomplete="username" required maxlength="254">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password"
+      autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+  {% endif %}
+  <p class="muted"><a href="/">Return to chatbot</a></p>
+</main>
+</body>
+</html>
+"""
+
+
+def _admin_csrf_token():
+    token = session.get("admin_csrf_token")
+    if not token:
+        token = token_urlsafe(32)
+        session["admin_csrf_token"] = token
+    return token
+
+
+def _current_admin():
+    user_id = session.get("admin_user_id")
+    if not user_id:
+        return None
+    user = db.get_admin_user(user_id)
+    if not user or user["status"] != "Active":
+        session.clear()
+        return None
+    return user
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _current_admin():
+            if request.path.startswith("/admin/api/"):
+                return jsonify({"error": "Administrator sign-in is required."}), 401
+            return redirect(url_for("admin_login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def csrf_protected(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            expected = session.get("admin_csrf_token", "")
+            supplied = (
+                request.headers.get("X-CSRF-Token")
+                or request.form.get("csrf_token", "")
+            )
+            if not expected or not supplied or not hmac.compare_digest(
+                expected, supplied
+            ):
+                return jsonify({"error": "Invalid or missing CSRF token."}), 400
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def _admin_is_superuser(user):
+    return user["role"] == "Super Admin"
+
+
+def _json_object():
+    if not request.is_json:
+        return None, (jsonify({"error": "Send a JSON request body."}), 415)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return None, (jsonify({"error": "The request body must be a JSON object."}), 400)
+    return data, None
+
+
+def _required_text(data, key, label, max_length):
+    value = data.get(key)
+    if not isinstance(value, str) or not value.strip():
+        return None, f"{label} is required."
+    value = value.strip()
+    if len(value) > max_length:
+        return None, f"{label} must be {max_length} characters or fewer."
+    return value, None
+
+
+def _optional_text(data, key, label, max_length):
+    value = data.get(key, "")
+    if value is None:
+        value = ""
+    if not isinstance(value, str):
+        return None, f"{label} must be text."
+    value = value.strip()
+    if len(value) > max_length:
+        return None, f"{label} must be {max_length} characters or fewer."
+    return value or None, None
+
+
+def _valid_email(value):
+    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value))
+
+
+@app.cli.command("create-admin")
+def create_admin_command():
+    """Create the initial Super Admin from a trusted server terminal."""
+    if db.has_admin_users():
+        raise click.ClickException(
+            "An administrator account already exists; use the admin panel."
+        )
+    full_name = click.prompt("Full name").strip()
+    email = click.prompt("Email address").strip()
+    password = click.prompt(
+        "Password", hide_input=True, confirmation_prompt=True
+    )
+    if not full_name or len(full_name) > 100:
+        raise click.ClickException("Name must contain 1 to 100 characters.")
+    if not _valid_email(email) or len(email) > 254:
+        raise click.ClickException("Enter a valid email address.")
+    if len(password) < 12:
+        raise click.ClickException("Password must contain at least 12 characters.")
+    user_id = db.create_initial_admin(
+        full_name, email, generate_password_hash(password)
+    )
+    if user_id is None:
+        raise click.ClickException(
+            "An administrator account was created concurrently; no new account was added."
+        )
+    db.log_admin_activity(full_name, "Created first account", "admin", user_id)
+    click.echo("Super Admin account created.")
+
+
+def _record_admin_activity(actor, action, entity, entity_id=None):
+    db.log_admin_activity(actor["full_name"], action, entity, entity_id)
+
+
+def _valid_status(value, choices, label="Status"):
+    if not isinstance(value, str) or value not in choices:
+        return None, f"{label} must be one of: {', '.join(choices)}."
+    return value, None
+
+
+def _knowledge_payload(data):
+    fields = {}
+    for key, label, limit in [
+        ("question", "Question", 200),
+        ("category", "Category", 80),
+        ("answer_en", "English answer", 10000),
+    ]:
+        fields[key], error = _required_text(data, key, label, limit)
+        if error:
+            return None, error
+    for key, label, limit in [
+        ("answer_tl", "Filipino answer", 10000),
+        ("keywords", "Keywords", 1000),
+    ]:
+        fields[key], error = _optional_text(data, key, label, limit)
+        if error:
+            return None, error
+    status, error = _valid_status(
+        data.get("status", "Draft"), {"Draft", "Published", "Archived"}
+    )
+    if error:
+        return None, error
+    fields["status"] = status
+    return fields, None
+
+
+def _announcement_payload(data):
+    fields = {}
+    for key, label, limit in [
+        ("title", "Title", 200),
+        ("content", "Content", 10000),
+    ]:
+        fields[key], error = _required_text(data, key, label, limit)
+        if error:
+            return None, error
+    status, error = _valid_status(
+        data.get("status", "Draft"), {"Draft", "Published", "Archived"}
+    )
+    if error:
+        return None, error
+    expiry, error = _optional_text(data, "expires_at", "Expiration date", 10)
+    if error:
+        return None, error
+    if expiry:
+        try:
+            date.fromisoformat(expiry)
+        except ValueError:
+            return None, "Expiration date must use YYYY-MM-DD."
+    fields.update(status=status, expires_at=expiry)
+    return fields, None
+
+
+@app.route("/admin", methods=["GET"])
+def admin_page():
+    if not _current_admin():
+        return redirect(url_for("admin_login"))
+    return send_from_directory(app.root_path, "admin.html")
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if _current_admin():
+        return redirect(url_for("admin_page"))
+    if not db.has_admin_users():
+        return render_template_string(
+            ADMIN_AUTH_TEMPLATE,
+            title="Administrator setup required",
+            setup_required=True,
+            error=None,
+        )
+
+    error = None
+    if request.method == "POST":
+        expected = session.get("admin_csrf_token", "")
+        supplied = request.form.get("csrf_token", "")
+        if not expected or not supplied or not hmac.compare_digest(
+            expected, supplied
+        ):
+            abort(400)
+        email = (request.form.get("email") or "").strip()
+        password = request.form.get("password") or ""
+        user = db.get_admin_user_by_email(email)
+        if (
+            user and user["status"] == "Active"
+            and check_password_hash(user["password_hash"], password)
+        ):
+            session.clear()
+            session.permanent = True
+            session["admin_user_id"] = user["id"]
+            session["admin_csrf_token"] = token_urlsafe(32)
+            return redirect(url_for("admin_page"))
+        error = "Email or password is incorrect."
+
+    return render_template_string(
+        ADMIN_AUTH_TEMPLATE,
+        title="Administrator sign in",
+        setup_required=False,
+        csrf_token=_admin_csrf_token(),
+        error=error,
+    )
+
+
+@app.route("/admin/api/bootstrap", methods=["GET"])
+@admin_required
+def admin_bootstrap():
+    user = _current_admin()
+    return jsonify({
+        "user": {
+            "id": user["id"],
+            "full_name": user["full_name"],
+            "email": user["email"],
+            "role": user["role"],
+        },
+        "csrf_token": _admin_csrf_token(),
+        "dashboard": db.get_admin_dashboard(),
+        "settings": db.get_admin_settings(),
+    })
+
+
+@app.route("/admin/api/logout", methods=["POST"])
+@admin_required
+@csrf_protected
+def admin_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/api/dashboard", methods=["GET"])
+@admin_required
+def admin_dashboard_api():
+    return jsonify(db.get_admin_dashboard())
+
+
+@app.route("/admin/api/knowledge", methods=["GET", "POST"])
+@admin_required
+@csrf_protected
+def admin_knowledge():
+    if request.method == "GET":
+        return jsonify({"items": db.list_knowledge()})
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    fields, error = _knowledge_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+    entry_id = db.create_knowledge(
+        fields["category"], fields["question"], fields["answer_en"],
+        fields["answer_tl"], fields["keywords"], fields["status"],
+    )
+    _record_admin_activity(_current_admin(), "Added", "knowledge", entry_id)
+    return jsonify({"id": entry_id}), 201
+
+
+@app.route("/admin/api/knowledge/<int:entry_id>", methods=["PUT", "DELETE"])
+@admin_required
+@csrf_protected
+def admin_knowledge_item(entry_id):
+    if request.method == "DELETE":
+        if not db.delete_knowledge(entry_id):
+            return jsonify({"error": "Knowledge article not found."}), 404
+        _record_admin_activity(_current_admin(), "Deleted", "knowledge", entry_id)
+        return jsonify({"ok": True})
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    fields, error = _knowledge_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+    if not db.update_knowledge(
+        entry_id, fields["category"], fields["question"], fields["answer_en"],
+        fields["answer_tl"], fields["keywords"], fields["status"],
+    ):
+        return jsonify({"error": "Knowledge article not found."}), 404
+    _record_admin_activity(_current_admin(), "Updated", "knowledge", entry_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/api/announcements", methods=["GET", "POST"])
+@admin_required
+@csrf_protected
+def admin_announcements():
+    if request.method == "GET":
+        return jsonify({"items": db.list_announcements()})
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    fields, error = _announcement_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+    actor = _current_admin()
+    announcement_id = db.create_announcement(
+        fields["title"], fields["content"], fields["status"],
+        fields["expires_at"], actor["id"],
+    )
+    _record_admin_activity(actor, "Added", "announcement", announcement_id)
+    return jsonify({"id": announcement_id}), 201
+
+
+@app.route(
+    "/admin/api/announcements/<int:announcement_id>",
+    methods=["PUT", "DELETE"],
+)
+@admin_required
+@csrf_protected
+def admin_announcement_item(announcement_id):
+    if request.method == "DELETE":
+        if not db.delete_announcement(announcement_id):
+            return jsonify({"error": "Announcement not found."}), 404
+        _record_admin_activity(
+            _current_admin(), "Deleted", "announcement", announcement_id
+        )
+        return jsonify({"ok": True})
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    fields, error = _announcement_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+    if not db.update_announcement(
+        announcement_id, fields["title"], fields["content"],
+        fields["status"], fields["expires_at"],
+    ):
+        return jsonify({"error": "Announcement not found."}), 404
+    _record_admin_activity(
+        _current_admin(), "Updated", "announcement", announcement_id
+    )
+    return jsonify({"ok": True})
+
+
+@app.route("/api/announcements", methods=["GET"])
+def public_announcements():
+    return jsonify({"items": db.list_announcements(public_only=True)})
+
+
+@app.route("/api/feedback", methods=["POST"])
+def public_feedback():
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    resident_name, error = _optional_text(
+        data, "resident_name", "Name", 100
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    message, error = _required_text(data, "message", "Feedback", 2000)
+    if error:
+        return jsonify({"error": error}), 400
+    feedback_id = db.create_feedback(resident_name or "Anonymous", message)
+    db.log_admin_activity("Community member", "Submitted", "feedback", feedback_id)
+    return jsonify({"id": feedback_id, "ok": True}), 201
+
+
+@app.route("/admin/api/feedback", methods=["GET"])
+@admin_required
+def admin_feedback():
+    return jsonify({"items": db.list_feedback()})
+
+
+@app.route("/admin/api/feedback/<int:feedback_id>", methods=["PATCH"])
+@admin_required
+@csrf_protected
+def admin_feedback_item(feedback_id):
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    status, error = _valid_status(
+        data.get("status"), {"Pending", "Reviewed", "Resolved"}
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    if not db.update_feedback_status(feedback_id, status):
+        return jsonify({"error": "Feedback item not found."}), 404
+    _record_admin_activity(_current_admin(), "Updated", "feedback", feedback_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/api/users", methods=["GET", "POST"])
+@admin_required
+@csrf_protected
+def admin_users():
+    actor = _current_admin()
+    if not _admin_is_superuser(actor):
+        return jsonify({"error": "Only a Super Admin can manage administrator accounts."}), 403
+    if request.method == "GET":
+        return jsonify({"items": db.list_admin_users()})
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    full_name, error = _required_text(data, "full_name", "Full name", 100)
+    if error:
+        return jsonify({"error": error}), 400
+    email, error = _required_text(data, "email", "Email", 254)
+    if error or not _valid_email(email):
+        return jsonify({"error": error or "Enter a valid email address."}), 400
+    password, error = _required_text(data, "password", "Password", 256)
+    if error or len(password) < 12:
+        return jsonify({"error": error or "Password must be at least 12 characters."}), 400
+    role, error = _valid_status(
+        data.get("role"), {"Admin", "Content Manager", "Super Admin"}, "Role"
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    status, error = _valid_status(data.get("status"), {"Active", "Inactive"})
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        user_id = db.create_admin_user(
+            full_name, email, generate_password_hash(password), role, status
+        )
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "An account with that email already exists."}), 409
+    _record_admin_activity(actor, "Added", "admin", user_id)
+    return jsonify({"id": user_id}), 201
+
+
+@app.route("/admin/api/users/<int:user_id>", methods=["PUT", "DELETE"])
+@admin_required
+@csrf_protected
+def admin_user_item(user_id):
+    actor = _current_admin()
+    if not _admin_is_superuser(actor):
+        return jsonify({"error": "Only a Super Admin can manage administrator accounts."}), 403
+    if request.method == "DELETE":
+        if user_id == actor["id"]:
+            return jsonify({"error": "You cannot delete your own account."}), 400
+        result = db.delete_admin_user(user_id)
+        if result == "missing":
+            return jsonify({"error": "Administrator account not found."}), 404
+        if result == "last_super_admin":
+            return jsonify({"error": "The last active Super Admin cannot be deleted."}), 400
+        _record_admin_activity(actor, "Deleted", "admin", user_id)
+        return jsonify({"ok": True})
+
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    updates = {}
+    for key, label, limit in [
+        ("full_name", "Full name", 100),
+        ("email", "Email", 254),
+    ]:
+        if key in data:
+            value, error = _required_text(data, key, label, limit)
+            if error:
+                return jsonify({"error": error}), 400
+            if key == "email" and not _valid_email(value):
+                return jsonify({"error": "Enter a valid email address."}), 400
+            updates[key] = value
+    if "role" in data:
+        role, error = _valid_status(
+            data["role"], {"Admin", "Content Manager", "Super Admin"}, "Role"
+        )
+        if error:
+            return jsonify({"error": error}), 400
+        updates["role"] = role
+    if "status" in data:
+        status, error = _valid_status(
+            data["status"], {"Active", "Inactive"}
+        )
+        if error:
+            return jsonify({"error": error}), 400
+        updates["status"] = status
+    new_password = data.get("password")
+    if new_password:
+        if not isinstance(new_password, str) or len(new_password) < 12:
+            return jsonify({"error": "Password must be at least 12 characters."}), 400
+        updates["password_hash"] = generate_password_hash(new_password)
+    result = db.update_admin_user(user_id, updates)
+    if result == "missing":
+        return jsonify({"error": "Administrator account not found."}), 404
+    if result == "last_super_admin":
+        return jsonify({"error": "The last active Super Admin cannot be disabled or demoted."}), 400
+    _record_admin_activity(actor, "Updated", "admin", user_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/api/settings", methods=["GET", "PUT"])
+@admin_required
+@csrf_protected
+def admin_settings():
+    actor = _current_admin()
+    if request.method == "GET":
+        return jsonify({
+            "profile": {
+                "full_name": actor["full_name"],
+                "email": actor["email"],
+            },
+            "preferences": db.get_admin_settings(),
+        })
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+    full_name, error = _required_text(data, "full_name", "Full name", 100)
+    if error:
+        return jsonify({"error": error}), 400
+    email, error = _required_text(data, "email", "Email", 254)
+    if error or not _valid_email(email):
+        return jsonify({"error": error or "Enter a valid email address."}), 400
+    new_password = data.get("new_password", "")
+    if new_password:
+        if not isinstance(new_password, str) or len(new_password) < 12:
+            return jsonify({"error": "New password must be at least 12 characters."}), 400
+        if not check_password_hash(
+            actor["password_hash"], data.get("current_password", "")
+        ):
+            return jsonify({"error": "Current password is incorrect."}), 400
+
+    preferences = data.get("preferences", {})
+    if not isinstance(preferences, dict):
+        return jsonify({"error": "Preferences must be an object."}), 400
+    valid_preferences = {}
+    for key in ("notifications_enabled", "chatbot_available", "maintenance_mode"):
+        if key in preferences:
+            if not isinstance(preferences[key], bool):
+                return jsonify({"error": f"{key} must be true or false."}), 400
+            valid_preferences[key] = preferences[key]
+
+    updates = {"full_name": full_name, "email": email}
+    if new_password:
+        updates["password_hash"] = generate_password_hash(new_password)
+    try:
+        update_result = db.update_admin_user(actor["id"], updates)
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "An account with that email already exists."}), 409
+    if update_result == "missing":
+        session.clear()
+        return jsonify({"error": "Administrator account not found."}), 401
+
+    saved_preferences = db.update_admin_settings(valid_preferences)
+    db.log_admin_activity(full_name, "Updated", "settings")
+    return jsonify({
+        "profile": {"full_name": full_name, "email": email},
+        "preferences": saved_preferences,
+    })
+
+
 if __name__ == '__main__':
-    print("🚀 Starting Web Chatbot Server on http://127.0.0.1:5001")
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5001"))
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    print(f"Starting Web Chatbot Server on http://{host}:{port}")
+    app.run(host=host, port=port, debug=debug)

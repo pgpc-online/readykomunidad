@@ -1,10 +1,15 @@
 """
 SQLite storage for the ReadyKomunidad chatbot.
 
-Two tables live in a single file (chatbot.db, next to this script):
+SQLite tables live in a single file (chatbot.db, next to this script):
 
   chatlogs         - every user message and bot reply, grouped by session_id
   knowledge_base   - extensible climate Q&A the router can fall back to
+  admin_users      - administrator accounts and password hashes
+  announcements    - admin-managed public notices with publication status
+  community_feedback - resident feedback and review status
+  admin_settings   - chatbot availability and admin preferences
+  admin_activity   - changes made in the administration panel
 
 The knowledge base is searched with simple keyword scoring (no extra
 SQLite extensions required), so it works on every Python sqlite3 build.
@@ -14,6 +19,7 @@ Add new entries at runtime with add_knowledge(...).
 import os
 import sqlite3
 import re
+import json
 
 # Keep the database file next to this script so it is easy to find/back up.
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chatbot.db")
@@ -51,9 +57,84 @@ def init_db():
                 answer_en   TEXT    NOT NULL,   -- English answer
                 answer_tl   TEXT,                -- Tagalog answer (optional)
                 keywords    TEXT,                -- comma-separated match terms
+                status      TEXT NOT NULL DEFAULT 'Published',
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name     TEXT NOT NULL,
+                email         TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                password_hash TEXT NOT NULL,
+                role          TEXT NOT NULL DEFAULT 'Admin',
+                status        TEXT NOT NULL DEFAULT 'Active',
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS announcements (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                status      TEXT NOT NULL DEFAULT 'Draft',
+                expires_at  TEXT,
+                created_by  INTEGER,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS community_feedback (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                resident_name TEXT NOT NULL DEFAULT 'Anonymous',
+                message       TEXT NOT NULL,
+                status        TEXT NOT NULL DEFAULT 'Pending',
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS admin_settings (
+                setting_key   TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL,
+                updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS admin_activity (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor_name  TEXT NOT NULL,
+                action      TEXT NOT NULL,
+                entity      TEXT NOT NULL,
+                entity_id   INTEGER,
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """
+        )
+        knowledge_columns = {
+            row["name"] for row in conn.execute(
+                "PRAGMA table_info(knowledge_base)"
+            ).fetchall()
+        }
+        if "status" not in knowledge_columns:
+            conn.execute(
+                "ALTER TABLE knowledge_base "
+                "ADD COLUMN status TEXT NOT NULL DEFAULT 'Published'"
+            )
+        if "updated_at" not in knowledge_columns:
+            conn.execute(
+                "ALTER TABLE knowledge_base ADD COLUMN updated_at TIMESTAMP"
+            )
+            conn.execute(
+                "UPDATE knowledge_base SET updated_at = created_at "
+                "WHERE updated_at IS NULL"
+            )
+        conn.executemany(
+            "INSERT OR IGNORE INTO admin_settings (setting_key, setting_value) "
+            "VALUES (?, ?)",
+            [
+                ("notifications_enabled", "true"),
+                ("chatbot_available", "true"),
+                ("maintenance_mode", "false"),
+            ],
         )
         conn.commit()
     finally:
@@ -120,7 +201,7 @@ def search_knowledge_base(query, limit=3):
     try:
         cur = conn.execute(
             "SELECT id, category, question, answer_en, answer_tl, keywords "
-            "FROM knowledge_base"
+            "FROM knowledge_base WHERE status = 'Published'"
         )
         for r in cur.fetchall():
             haystack = " ".join(
@@ -149,14 +230,18 @@ def search_knowledge_base(query, limit=3):
     ]
 
 
-def add_knowledge(category, question, answer_en, answer_tl=None, keywords=None):
+def add_knowledge(
+    category, question, answer_en, answer_tl=None, keywords=None,
+    status="Published",
+):
     """Insert a new knowledge_base entry and return its row id."""
     conn = _get_conn()
     try:
         cur = conn.execute(
-            "INSERT INTO knowledge_base (category, question, answer_en, answer_tl, keywords) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (category, question, answer_en, answer_tl, keywords),
+            "INSERT INTO knowledge_base "
+            "(category, question, answer_en, answer_tl, keywords, status, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            (category, question, answer_en, answer_tl, keywords, status),
         )
         conn.commit()
         return cur.lastrowid
@@ -192,6 +277,381 @@ def chatlog_stats():
         ).fetchone()[0]
         kb = conn.execute("SELECT COUNT(*) FROM knowledge_base").fetchone()[0]
         return {"messages": total, "sessions": sessions, "kb_entries": kb}
+    finally:
+        conn.close()
+
+
+def has_admin_users():
+    conn = _get_conn()
+    try:
+        return conn.execute(
+            "SELECT 1 FROM admin_users LIMIT 1"
+        ).fetchone() is not None
+    finally:
+        conn.close()
+
+
+def get_admin_user_by_email(email):
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM admin_users WHERE email = ? COLLATE NOCASE",
+            (email,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_admin_user(user_id):
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM admin_users WHERE id = ?", (user_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_admin_users():
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, full_name, email, role, status, created_at "
+            "FROM admin_users ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def create_initial_admin(full_name, email, password_hash):
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        if conn.execute(
+            "SELECT 1 FROM admin_users LIMIT 1"
+        ).fetchone():
+            conn.rollback()
+            return None
+        cursor = conn.execute(
+            "INSERT INTO admin_users "
+            "(full_name, email, password_hash, role, status) "
+            "VALUES (?, ?, ?, 'Super Admin', 'Active')",
+            (full_name, email, password_hash),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def create_admin_user(full_name, email, password_hash, role, status):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO admin_users "
+            "(full_name, email, password_hash, role, status) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (full_name, email, password_hash, role, status),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def update_admin_user(user_id, updates):
+    allowed = {"full_name", "email", "password_hash", "role", "status"}
+    fields = [(key, value) for key, value in updates.items() if key in allowed]
+    if not fields:
+        return "unchanged"
+
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        target = conn.execute(
+            "SELECT role, status FROM admin_users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not target:
+            conn.rollback()
+            return "missing"
+
+        updated_role = updates.get("role", target["role"])
+        updated_status = updates.get("status", target["status"])
+        if target["role"] == "Super Admin" and target["status"] == "Active" \
+                and (updated_role != "Super Admin" or updated_status != "Active"):
+            active_super_admins = conn.execute(
+                "SELECT COUNT(*) FROM admin_users "
+                "WHERE role = 'Super Admin' AND status = 'Active'"
+            ).fetchone()[0]
+            if active_super_admins <= 1:
+                conn.rollback()
+                return "last_super_admin"
+
+        assignments = ", ".join(f"{key} = ?" for key, _ in fields)
+        values = [value for _, value in fields]
+        conn.execute(
+            f"UPDATE admin_users SET {assignments}, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (*values, user_id),
+        )
+        conn.commit()
+        return "updated"
+    finally:
+        conn.close()
+
+
+def delete_admin_user(user_id):
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        target = conn.execute(
+            "SELECT role, status FROM admin_users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not target:
+            conn.rollback()
+            return "missing"
+        if target["role"] == "Super Admin" and target["status"] == "Active":
+            active_super_admins = conn.execute(
+                "SELECT COUNT(*) FROM admin_users "
+                "WHERE role = 'Super Admin' AND status = 'Active'"
+            ).fetchone()[0]
+            if active_super_admins <= 1:
+                conn.rollback()
+                return "last_super_admin"
+        conn.execute("DELETE FROM admin_users WHERE id = ?", (user_id,))
+        conn.commit()
+        return "deleted"
+    finally:
+        conn.close()
+
+
+def list_knowledge():
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, category, question, answer_en, answer_tl, keywords, "
+            "status, created_at, updated_at FROM knowledge_base "
+            "ORDER BY updated_at DESC, id DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def create_knowledge(category, question, answer_en, answer_tl, keywords, status):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO knowledge_base "
+            "(category, question, answer_en, answer_tl, keywords, status, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            (category, question, answer_en, answer_tl, keywords, status),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def update_knowledge(entry_id, category, question, answer_en, answer_tl, keywords, status):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "UPDATE knowledge_base SET category = ?, question = ?, answer_en = ?, "
+            "answer_tl = ?, keywords = ?, status = ?, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (category, question, answer_en, answer_tl, keywords, status, entry_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_knowledge(entry_id):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM knowledge_base WHERE id = ?", (entry_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def list_announcements(public_only=False):
+    conn = _get_conn()
+    try:
+        where = (
+            "WHERE status = 'Published' "
+            "AND (expires_at IS NULL OR date(expires_at) >= date('now')) "
+            if public_only else ""
+        )
+        rows = conn.execute(
+            "SELECT id, title, content, status, expires_at, created_at, updated_at "
+            f"FROM announcements {where} ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def create_announcement(title, content, status, expires_at, created_by):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO announcements (title, content, status, expires_at, created_by) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (title, content, status, expires_at, created_by),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def update_announcement(announcement_id, title, content, status, expires_at):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "UPDATE announcements SET title = ?, content = ?, status = ?, "
+            "expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (title, content, status, expires_at, announcement_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_announcement(announcement_id):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM announcements WHERE id = ?", (announcement_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def list_feedback():
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, resident_name, message, status, created_at "
+            "FROM community_feedback ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def create_feedback(resident_name, message):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO community_feedback (resident_name, message) "
+            "VALUES (?, ?)",
+            (resident_name, message),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def update_feedback_status(feedback_id, status):
+    conn = _get_conn()
+    try:
+        cursor = conn.execute(
+            "UPDATE community_feedback SET status = ?, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (status, feedback_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_admin_settings():
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT setting_key, setting_value FROM admin_settings"
+        ).fetchall()
+        values = {row["setting_key"]: json.loads(row["setting_value"]) for row in rows}
+        return {
+            "notifications_enabled": values.get("notifications_enabled", True),
+            "chatbot_available": values.get("chatbot_available", True),
+            "maintenance_mode": values.get("maintenance_mode", False),
+        }
+    finally:
+        conn.close()
+
+
+def update_admin_settings(settings):
+    allowed = {"notifications_enabled", "chatbot_available", "maintenance_mode"}
+    conn = _get_conn()
+    try:
+        for key, value in settings.items():
+            if key in allowed:
+                conn.execute(
+                    "INSERT INTO admin_settings (setting_key, setting_value, updated_at) "
+                    "VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(setting_key) "
+                    "DO UPDATE SET setting_value = excluded.setting_value, "
+                    "updated_at = CURRENT_TIMESTAMP",
+                    (key, json.dumps(bool(value))),
+                )
+        conn.commit()
+        return get_admin_settings()
+    finally:
+        conn.close()
+
+
+def log_admin_activity(actor_name, action, entity, entity_id=None):
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO admin_activity (actor_name, action, entity, entity_id) "
+            "VALUES (?, ?, ?, ?)",
+            (actor_name, action, entity, entity_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_admin_dashboard():
+    conn = _get_conn()
+    try:
+        return {
+            "knowledge_articles": conn.execute(
+                "SELECT COUNT(*) FROM knowledge_base"
+            ).fetchone()[0],
+            "published_announcements": conn.execute(
+                "SELECT COUNT(*) FROM announcements WHERE status = 'Published' "
+                "AND (expires_at IS NULL OR date(expires_at) >= date('now'))"
+            ).fetchone()[0],
+            "pending_feedback": conn.execute(
+                "SELECT COUNT(*) FROM community_feedback WHERE status = 'Pending'"
+            ).fetchone()[0],
+            "admin_accounts": conn.execute(
+                "SELECT COUNT(*) FROM admin_users"
+            ).fetchone()[0],
+            "recent_activity": [
+                dict(row) for row in conn.execute(
+                    "SELECT actor_name, action, entity, entity_id, created_at "
+                    "FROM admin_activity ORDER BY id DESC LIMIT 10"
+                ).fetchall()
+            ],
+        }
     finally:
         conn.close()
 

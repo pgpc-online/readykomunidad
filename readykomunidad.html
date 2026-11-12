@@ -108,7 +108,9 @@
 
     <!-- Top Minimal Navigation -->
     <header class="w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c111d]/70 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between shrink-0 z-20">
-        <div class="flex items-center space-x-3">
+        <button id="community-sidebar-trigger" type="button" onclick="openCommunitySidebar()"
+            aria-label="Open ReadyKomunidad community menu" aria-controls="community-sidebar" aria-expanded="false"
+            class="flex items-center space-x-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
             <!-- Sun Logo Icon -->
             <div class="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-sm shadow-brand-500/25">
                 <i class="fa-solid fa-sun text-base animate-spin" style="animation-duration: 25s;"></i>
@@ -119,7 +121,7 @@
                     <span class="text-[10px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200/60 dark:border-brand-800/50">AI</span>
                 </div>
             </div>
-        </div>
+        </button>
 
         <div class="flex items-center space-x-2">
             <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-xl transition-colors text-xs flex items-center gap-1.5" title="Toggle Dark/Light Mode">
@@ -131,6 +133,63 @@
             </button>
         </div>
     </header>
+
+    <div id="community-sidebar-backdrop" aria-hidden="true"
+        onclick="closeCommunitySidebar()"
+        class="fixed inset-0 z-40 bg-slate-950/50 opacity-0 pointer-events-none transition-opacity duration-200"></div>
+    <aside id="community-sidebar" role="dialog" aria-modal="true"
+        aria-label="ReadyKomunidad community menu" aria-hidden="true" inert
+        class="fixed inset-y-0 left-0 z-50 flex w-[min(90vw,390px)] -translate-x-full flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] shadow-2xl transition-transform duration-300">
+        <div class="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-5">
+            <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-white">ReadyKomunidad</h2>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Community updates and feedback</p>
+            </div>
+            <button type="button" onclick="closeCommunitySidebar()" aria-label="Close community menu"
+                class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="flex-1 space-y-7 overflow-y-auto px-5 py-5">
+            <section aria-labelledby="community-announcements-title">
+                <h3 id="community-announcements-title"
+                    class="text-sm font-semibold text-slate-900 dark:text-white">Announcements</h3>
+                <div id="community-announcements" class="mt-3 space-y-3" role="status" aria-live="polite">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Open the menu to check the latest announcements.</p>
+                </div>
+            </section>
+            <section aria-labelledby="community-feedback-title">
+                <h3 id="community-feedback-title"
+                    class="text-sm font-semibold text-slate-900 dark:text-white">Send feedback</h3>
+                <p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    Send a suggestion or report a bug anonymously. No account or name is needed.
+                </p>
+                <form id="community-feedback-form" onsubmit="submitCommunityFeedback(event)" class="mt-3 space-y-3">
+                    <label class="sr-only" for="feedback-type">Message type</label>
+                    <select id="feedback-type" name="feedback_type"
+                        class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+                        <option value="Feedback">Send feedback</option>
+                        <option value="Bug report">Report a bug</option>
+                    </select>
+                    <label class="sr-only" for="feedback-message">Your message</label>
+                    <textarea id="feedback-message" name="message" required maxlength="2000" rows="4"
+                        placeholder="How can we improve?"
+                        class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400"></textarea>
+                    <div class="flex items-center justify-between gap-3">
+                        <span id="feedback-status" class="text-xs text-slate-500 dark:text-slate-400"
+                            role="status" aria-live="polite"></span>
+                        <button type="submit"
+                            class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-brand-500 dark:hover:text-white">
+                            Send anonymously
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+        <footer class="border-t border-slate-200 dark:border-slate-800 px-5 py-4 text-xs text-slate-500 dark:text-slate-400">
+            ReadyKomunidad v1.0
+        </footer>
+    </aside>
 
     <!-- Main Chat Workspace -->
     <main class="flex-1 max-w-3xl w-full mx-auto flex flex-col overflow-hidden px-3 sm:px-6 pt-2 pb-3">
@@ -749,6 +808,97 @@ async function copyMessage(btn, bubble) {
 }
 
 
+    </script>
+    <script>
+        const communitySidebar = document.getElementById("community-sidebar");
+        const communitySidebarBackdrop = document.getElementById("community-sidebar-backdrop");
+        const communitySidebarTrigger = document.getElementById("community-sidebar-trigger");
+
+        function openCommunitySidebar() {
+            communitySidebar.inert = false;
+            communitySidebar.setAttribute("aria-hidden", "false");
+            communitySidebarTrigger.setAttribute("aria-expanded", "true");
+            communitySidebarBackdrop.setAttribute("aria-hidden", "false");
+            communitySidebarBackdrop.classList.remove("pointer-events-none", "opacity-0");
+            requestAnimationFrame(() => communitySidebar.classList.remove("-translate-x-full"));
+            communitySidebar.querySelector("button").focus();
+            loadCommunityAnnouncements();
+        }
+
+        function closeCommunitySidebar() {
+            communitySidebar.classList.add("-translate-x-full");
+            communitySidebar.inert = true;
+            communitySidebar.setAttribute("aria-hidden", "true");
+            communitySidebarTrigger.setAttribute("aria-expanded", "false");
+            communitySidebarBackdrop.setAttribute("aria-hidden", "true");
+            communitySidebarBackdrop.classList.add("pointer-events-none", "opacity-0");
+            communitySidebarTrigger.focus();
+        }
+
+        async function loadCommunityAnnouncements() {
+            const list = document.getElementById("community-announcements");
+            list.textContent = "Loading announcements…";
+            try {
+                const response = await fetch("/api/announcements");
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || "Announcements could not be loaded.");
+                }
+                list.replaceChildren();
+                if (!result.items.length) {
+                    list.textContent = "There are no current community announcements.";
+                    return;
+                }
+                result.items.forEach(item => {
+                    const article = document.createElement("article");
+                    article.className = "rounded-xl border border-slate-200 dark:border-slate-700 p-3";
+                    const title = document.createElement("h4");
+                    title.className = "text-sm font-medium text-slate-800 dark:text-slate-100";
+                    title.textContent = item.title;
+                    const content = document.createElement("p");
+                    content.className = "mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600 dark:text-slate-300";
+                    content.textContent = item.content;
+                    article.append(title, content);
+                    list.append(article);
+                });
+            } catch (error) {
+                list.textContent = error.message || "Announcements could not be loaded.";
+            }
+        }
+
+        async function submitCommunityFeedback(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const status = document.getElementById("feedback-status");
+            const submit = form.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            status.textContent = "Sending…";
+            try {
+                const response = await fetch("/api/feedback", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: `[${form.elements.feedback_type.value}] ${form.elements.message.value.trim()}`
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || "Feedback could not be sent.");
+                }
+                form.reset();
+                status.textContent = "Thank you! Your anonymous message was received.";
+            } catch (error) {
+                status.textContent = error.message || "Feedback could not be sent.";
+            } finally {
+                submit.disabled = false;
+            }
+        }
+
+        document.addEventListener("keydown", event => {
+            if (event.key === "Escape" && !communitySidebar.inert) {
+                closeCommunitySidebar();
+            }
+        });
     </script>
 </body>
 </html>
