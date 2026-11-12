@@ -174,328 +174,581 @@
         <span class="absolute top-5 right-6 text-white text-2xl font-light cursor-pointer hover:opacity-75 transition-opacity" onclick="closeLightbox(event)">&times;</span>
         <img id="lightbox-img" src="" alt="Full preview">
     </div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.3.1/purify.min.js"></script>
     <script>
-        // Store conversation messages
-        let messages = [];
+        
+// ==========================================
+// READYKOMUNIDAD - MAIN CHATBOT SCRIPT
+// ==========================================
 
-        // Unique conversation session identifier
-        let sessionId = localStorage.getItem('rk_session_id') || '';
-        function newSessionId() {
-            sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'sess-' + Date.now();
-            localStorage.setItem('rk_session_id', sessionId);
+// Store conversation messages
+let messages = [];
+
+// Session management
+let sessionId = localStorage.getItem('rk_session_id') || '';
+
+function newSessionId() {
+    sessionId = (crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'sess-' + Date.now();
+
+    localStorage.setItem('rk_session_id', sessionId);
+}
+
+if (!sessionId) newSessionId();
+
+// DOM elements
+const chatMessagesEl = document.getElementById('chat-messages');
+const userInputEl = document.getElementById('user-input');
+const chatFormEl = document.getElementById('chat-form');
+const scrollBottomBtn = document.getElementById('scroll-to-bottom-btn');
+
+
+// ==========================================
+// SECURITY: ESCAPE UNTRUSTED TEXT
+// ==========================================
+
+function escapeHTML(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text ?? '');
+    return div.innerHTML;
+}
+
+
+// ==========================================
+// INITIALIZE CHAT
+// ==========================================
+
+window.onload = async function () {
+    try {
+        const res = await fetch(
+            '/api/history?session_id=' + encodeURIComponent(sessionId)
+        );
+
+        const data = await res.json();
+
+        if (data.messages && Array.isArray(data.messages)) {
+            messages = data.messages;
         }
-        if (!sessionId) { newSessionId(); }
+    } catch (error) {
+        console.error('History loading failed:', error);
+        messages = [];
+    }
 
-        const chatMessagesEl = document.getElementById('chat-messages');
-        const userInputEl = document.getElementById('user-input');
-        const chatFormEl = document.getElementById('chat-form');
-        const scrollBottomBtn = document.getElementById('scroll-to-bottom-btn');
+    renderMessages();
+};
 
-        window.onload = async function() {
-            // Restore previous session if exists
-            if (sessionId) {
-                try {
-                    const res = await fetch('/api/history?session_id=' + encodeURIComponent(sessionId));
-                    const data = await res.json();
-                    if (data.messages && data.messages.length > 0) {
-                        messages = data.messages;
-                    }
-                } catch (e) {
-                    messages = [];
-                }
-            }
-            renderMessages();
-        };
 
-        function getCurrentTime() {
-            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// ==========================================
+// TIME
+// ==========================================
+
+function getCurrentTime() {
+    return new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+
+// ==========================================
+// MARKDOWN FORMATTER + HTML SANITIZER
+// ==========================================
+
+function formatMarkdown(text) {
+    if (!text) return '';
+
+    let result = String(text);
+
+    // Convert only trusted suggested-question actions into
+    // data attributes. Never execute backend-provided onclick.
+    result = result.replace(
+        /onclick\s*=\s*(["'])sendQuickPrompt\((['"])(.*?)\2\)\1/gi,
+        (match, outerQuote, innerQuote, prompt) => {
+            return `data-prompt="${escapeHTML(prompt)}"`;
         }
+    );
 
-        // Render either empty welcome screen or active message list
-        function renderMessages() {
-            chatMessagesEl.innerHTML = '';
+    // Markdown formatting
+    result = result
+        .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.*?)\*\*/g,
+            '<strong class="font-semibold text-slate-900 dark:text-white">$1</strong>')
+        .replace(/\*(.*?)\*/g,
+            '<em class="italic text-slate-600 dark:text-slate-300">$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
 
-            if (messages.length === 0) {
-                renderWelcomeScreen();
-                return;
-            }
+    // Process Markdown images
+    const lines = result.split('\n');
+    const processed = [];
+    let imgBuffer = [];
 
-            messages.forEach((msg) => {
-                const isBot = msg.sender === 'bot';
-                const messageWrapper = document.createElement('div');
-                messageWrapper.className = `flex flex-col animate-fade-in ${isBot ? 'items-start' : 'items-end'}`;
+    function flushImages() {
+        if (!imgBuffer.length) return;
 
-                let bubbleStyle = isBot
-                    ? 'bg-transparent text-slate-800 dark:text-slate-100 max-w-full sm:max-w-[92%]'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%] sm:max-w-[75%] border border-slate-200/60 dark:border-slate-700/50 shadow-2xs';
+        processed.push(`
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2.5">
+                ${imgBuffer.join('')}
+            </div>
+        `);
 
-                const botHeader = isBot ? `
-                    <div class="flex items-center gap-2 mb-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
-                        <i class="fa-solid fa-sun text-[11px] text-amber-500"></i>
-                        <span>ReadyKomunidad</span>
-                        <span>•</span>
-                        <span>${msg.time || ''}</span>
-                        <button onclick="copyMessage(this)" data-text="${escapeQuotes(msg.text)}" class="hover:text-brand-500 transition-colors ml-1 p-0.5" title="Copy text">
-                            <i class="fa-regular fa-copy text-[11px]"></i>
-                        </button>
-                    </div>
-                ` : '';
+        imgBuffer = [];
+    }
 
-                messageWrapper.innerHTML = `
-                    ${botHeader}
-                    <div class="${bubbleStyle} text-sm leading-relaxed">
-                        ${formatMarkdown(msg.text)}
-                    </div>
-                    ${!isBot ? `<div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 mr-1">${msg.time || ''}</div>` : ''}
-                `;
+    lines.forEach(line => {
+        const imgMatch = line.match(
+            /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/
+        );
 
-                chatMessagesEl.appendChild(messageWrapper);
-            });
-
-            scrollToBottom();
-        }
-
-        function escapeQuotes(str) {
-            return (str || '')
-                .replace(/"/g, '&quot;')
-                .replace(/\n/g, '&#10;');
-        }
-
-        // Clean, minimal initial welcome state with Sun Logo
-        function renderWelcomeScreen() {
-            const welcomeDiv = document.createElement('div');
-            welcomeDiv.className = 'h-full flex flex-col justify-center items-center text-center max-w-xl mx-auto px-2 py-6 animate-fade-in select-none';
-            welcomeDiv.innerHTML = `
-                <!-- Sole Sun Logo -->
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/25 mb-5">
-                    <i class="fa-solid fa-sun text-2xl animate-spin" style="animation-duration: 25s;"></i>
-                </div>
-                
-                <h2 class="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mb-2.5">
-                    Hello! How can I help you today?
-                </h2>
-                
-                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 max-w-md">
-                    Ask about El Niño, local preparedness, rainfall information, and community assistance in Padre Garcia, Batangas.
-                </p>
-
-                <!-- Modern Minimalist Prompt Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
-                    <button onclick="sendQuickPrompt('What is El Niño?')" 
-                        class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-slate-900 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                        <span class="text-base text-amber-500 group-hover:scale-110 transition-transform mt-0.5"><i class="fa-solid fa-sun"></i></span>
-                        <div>
-                            <span class="font-medium text-slate-800 dark:text-slate-200 block mb-0.5">What is El Niño?</span>
-                            <span class="text-slate-400 dark:text-slate-500 text-[11px] block">Understand causes, mechanics & local risks</span>
-                        </div>
-                    </button>
-
-                    <button onclick="sendQuickPrompt('What should I do during El Niño?')" 
-                        class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-slate-900 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                        <span class="text-base text-sky-500 group-hover:scale-110 transition-transform mt-0.5"><i class="fa-solid fa-faucet-drip"></i></span>
-                        <div>
-                            <span class="font-medium text-slate-800 dark:text-slate-200 block mb-0.5">Preparedness</span>
-                            <span class="text-slate-400 dark:text-slate-500 text-[11px] block">Action tips for households & farmers</span>
-                        </div>
-                    </button>
-
-                    <button onclick="sendQuickPrompt('Predict rain for May')" 
-                        class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-slate-900 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                        <span class="text-base text-emerald-500 group-hover:scale-110 transition-transform mt-0.5"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-                        <div>
-                            <span class="font-medium text-slate-800 dark:text-slate-200 block mb-0.5">Predict Rainfall for May</span>
-                            <span class="text-slate-400 dark:text-slate-500 text-[11px] block">AI forecasting for Padre Garcia</span>
-                        </div>
-                    </button>
-
-                    <button onclick="sendQuickPrompt('Who to contact during an El Niño emergency?')" 
-                        class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-slate-900 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                        <span class="text-base text-rose-500 group-hover:scale-110 transition-transform mt-0.5"><i class="fa-solid fa-phone-volume"></i></span>
-                        <div>
-                            <span class="font-medium text-slate-800 dark:text-slate-200 block mb-0.5">Emergency & LGU Contacts</span>
-                            <span class="text-slate-400 dark:text-slate-500 text-[11px] block">MDRRMO, RHU & emergency hotlines</span>
-                        </div>
-                    </button>
-                </div>
-            `;
-            chatMessagesEl.appendChild(welcomeDiv);
-        }
-
-        // Send query to Flask backend
-        async function handleUserSubmit(e) {
-            if (e) e.preventDefault();
-            const text = userInputEl.value.trim();
-            if (!text) return;
-
-            // Append user turn
-            messages.push({ sender: 'user', text: text, time: getCurrentTime() });
-            userInputEl.value = '';
-            renderMessages();
-
-            // High-visibility typing indicator with Sun Avatar
-            const typingDiv = document.createElement('div');
-            typingDiv.id = 'typing-indicator';
-            typingDiv.className = 'flex items-start gap-3 animate-fade-in my-2';
-            typingDiv.innerHTML = `
-                <!-- Sun Bot Avatar with Pulse Ring -->
-                <div class="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white text-xs shadow-md shadow-brand-500/20 shrink-0 mt-0.5">
-                    <i class="fa-solid fa-sun text-sm animate-spin" style="animation-duration: 20s;"></i>
-                    <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
-                </div>
-
-                <!-- Modern Bubble with Glowing Bouncing Dots -->
-                <div class="bg-white dark:bg-slate-900 border border-brand-200/80 dark:border-brand-900/60 rounded-2xl rounded-tl-sm px-4 py-3 shadow-xs flex items-center gap-3">
-                    <span class="text-xs font-medium text-brand-600 dark:text-brand-400 animate-shimmer flex items-center gap-1.5">
-                        <i class="fa-solid fa-sparkles text-[11px]"></i>
-                        <span>Thinking</span>
-                    </span>
-                    <span class="w-px h-3.5 bg-slate-200 dark:bg-slate-800"></span>
-                    <div class="flex items-center gap-1.5 pt-1">
-                        <span class="w-2.5 h-2.5 bg-brand-500 rounded-full animate-dot-1"></span>
-                        <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-dot-2"></span>
-                        <span class="w-2.5 h-2.5 bg-brand-600 rounded-full animate-dot-3"></span>
-                    </div>
-                </div>
-            `;
-            chatMessagesEl.appendChild(typingDiv);
-            scrollToBottom();
-
-            try {
-                // Keep animation visibly active for at least 750ms so user clearly notices it
-                const [response] = await Promise.all([
-                    fetch('/api/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: text, session_id: sessionId })
-                    }),
-                    new Promise(resolve => setTimeout(resolve, 750))
-                ]);
-                const data = await response.json();
-
-                if (data.session_id) {
-                    sessionId = data.session_id;
-                    localStorage.setItem('rk_session_id', sessionId);
-                }
-
-                const indicator = document.getElementById('typing-indicator');
-                if (indicator) indicator.remove();
-
-                messages.push({ sender: 'bot', text: data.reply, time: getCurrentTime() });
-                renderMessages();
-
-            } catch (err) {
-                const indicator = document.getElementById('typing-indicator');
-                if (indicator) indicator.remove();
-                messages.push({ sender: 'bot', text: "⚠️ Unable to connect to the chatbot server. Please check your connection.", time: getCurrentTime() });
-                renderMessages();
-            }
-        }
-
-        function sendQuickPrompt(promptText) {
-            userInputEl.value = promptText;
-            handleUserSubmit();
-        }
-
-        function clearChat() {
-            newSessionId();
-            messages = [];
-            renderMessages();
-        }
-
-        // Markdown text & image parser
-        // Markdown text, card & image parser
-        function formatMarkdown(text) {
-            if (!text) return '';
-
-            // If the message contains an embedded HTML card (<!-- RAINFALL_CARD -->),
-            // render it directly without line-break munging
-            if (text.includes('<!-- RAINFALL_CARD -->')) {
-                return text;
-            }
-
-            let result = text
-                .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900 dark:text-white">$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em class="italic text-slate-600 dark:text-slate-300">$1</em>');
-
-            const lines = result.split('\n');
-            const processed = [];
-            let imgBuffer = [];
-
-            function flushImages() {
-                if (imgBuffer.length === 0) return;
-                processed.push(
-                    `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2.5">` +
-                    imgBuffer.join('') +
-                    `</div>`
-                );
-                imgBuffer = [];
-            }
-
-            lines.forEach(line => {
-                const imgMatch = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)$/);
-                if (imgMatch) {
-                    const alt = imgMatch[1].replace(/'/g, "\\'");
-                    const src = imgMatch[2];
-                    imgBuffer.push(
-                        `<img src="${src}" alt="${imgMatch[1]}" class="chat-img-thumb w-full h-36 object-cover rounded-xl border border-slate-200/80 dark:border-slate-800" onclick="openLightbox('${src}')" onerror="this.style.display='none'">`
-                    );
-                } else {
-                    flushImages();
-                    processed.push(line);
-                }
-            });
+        if (imgMatch) {
+            imgBuffer.push(`
+                <img
+                    src="${escapeHTML(imgMatch[2])}"
+                    alt="${escapeHTML(imgMatch[1])}"
+                    class="chat-img-thumb w-full h-36 object-cover rounded-xl border border-slate-200/80 dark:border-slate-800"
+                >
+            `);
+        } else {
             flushImages();
 
-            return processed.join('<br>');
-        }
-
-        function openLightbox(src) {
-            const box = document.getElementById('image-lightbox');
-            const img = document.getElementById('lightbox-img');
-            img.src = src;
-            box.classList.add('open');
-        }
-
-        function closeLightbox(e) {
-            const box = document.getElementById('image-lightbox');
-            box.classList.remove('open');
-            document.getElementById('lightbox-img').src = '';
-        }
-
-        function scrollToBottom() {
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-        }
-
-        chatMessagesEl.addEventListener('scroll', function () {
-            const dist = chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight;
-            if (dist > 120 && messages.length > 0) {
-                scrollBottomBtn.classList.remove('hidden');
+            if (/^### /.test(line)) {
+                processed.push(`<h3>${line.slice(4)}</h3>`);
+            } else if (/^## /.test(line)) {
+                processed.push(`<h2>${line.slice(3)}</h2>`);
+            } else if (/^# /.test(line)) {
+                processed.push(`<h1>${line.slice(2)}</h1>`);
+            } else if (/^- /.test(line)) {
+                processed.push(`<div>• ${line.slice(2)}</div>`);
             } else {
-                scrollBottomBtn.classList.add('hidden');
+                processed.push(line);
             }
-        });
-
-        function toggleDarkMode() {
-            document.documentElement.classList.toggle('dark');
-            const isDark = document.documentElement.classList.contains('dark');
-            const icon = document.getElementById('theme-icon');
-            icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
         }
+    });
 
-        function copyMessage(btn) {
-            const raw = btn.getAttribute('data-text') || '';
-            const plain = raw
-                .replace(/!\[.*?\]\(.*?\)/g, '')
-                .replace(/\*\*(.*?)\*\*/g, '$1')
-                .replace(/\*(.*?)\*/g, '$1');
-            navigator.clipboard.writeText(plain).then(() => {
-                const icon = btn.querySelector('i');
-                icon.className = 'fa-solid fa-check text-[11px] text-emerald-500';
-                setTimeout(() => { icon.className = 'fa-regular fa-copy text-[11px]'; }, 1800);
+    flushImages();
+
+    const html = processed.join('<br>');
+
+    // Sanitize all chatbot-generated HTML.
+    // Safe formatting is preserved; executable HTML/JavaScript is removed.
+    return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+            'div', 'span', 'p', 'br',
+            'strong', 'em', 'b', 'i',
+            'h1', 'h2', 'h3', 'h4',
+            'ul', 'ol', 'li',
+            'a', 'img', 'code', 'pre',
+            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            'button',
+            'svg', 'path', 'rect', 'line',
+            'circle', 'polyline', 'polygon',
+            'g', 'text', 'tspan'
+        ],
+        ALLOWED_ATTR: [
+            'class', 'src', 'alt', 'title',
+            'href', 'target', 'rel',
+            'width', 'height', 'viewBox',
+            'd', 'fill', 'stroke', 'stroke-width',
+            'x', 'y', 'x1', 'x2', 'y1', 'y2',
+            'cx', 'cy', 'r', 'rx', 'ry',
+            'points', 'transform', 'colspan', 'rowspan',
+            'data-prompt'
+        ]
+    });
+}
+
+
+// ==========================================
+// RENDER MESSAGES
+// ==========================================
+
+function renderMessages() {
+    chatMessagesEl.innerHTML = '';
+
+    if (messages.length === 0) {
+        renderWelcomeScreen();
+        return;
+    }
+
+    messages.forEach(msg => {
+        const isBot = msg.sender === 'bot';
+
+        const messageWrapper = document.createElement('div');
+
+        messageWrapper.className =
+            `flex flex-col animate-fade-in ${isBot ? 'items-start' : 'items-end'}`;
+
+        const bubbleStyle = isBot
+            ? 'bg-transparent text-slate-800 dark:text-slate-100 max-w-full sm:max-w-[92%]'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%] sm:max-w-[75%] border border-slate-200/60 dark:border-slate-700/50 shadow-2xs';
+
+        const botHeader = isBot ? `
+            <div class="flex items-center gap-2 mb-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                <i class="fa-solid fa-sun text-[11px] text-amber-500"></i>
+                <span>ReadyKomunidad</span>
+                <span>•</span>
+                <span>${escapeHTML(msg.time || '')}</span>
+
+                <button type="button"
+                    class="copy-message-btn hover:text-brand-500 transition-colors ml-1 p-0.5"
+                    title="Copy response">
+                    <i class="fa-regular fa-copy text-[11px]"></i>
+                </button>
+            </div>
+        ` : '';
+
+        messageWrapper.innerHTML = `
+            ${botHeader}
+
+            <div class="message-bubble ${bubbleStyle} text-sm leading-relaxed">
+                ${isBot
+                    ? formatMarkdown(msg.text)
+                    : escapeHTML(msg.text).replace(/\n/g, '<br>')
+                }
+            </div>
+
+            ${!isBot
+                ? `<div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 mr-1">${escapeHTML(msg.time || '')}</div>`
+                : ''
+            }
+        `;
+
+        if (isBot) {
+            const copyBtn =
+                messageWrapper.querySelector('.copy-message-btn');
+
+            const bubble =
+                messageWrapper.querySelector('.message-bubble');
+
+            // Copy visible chatbot text
+            copyBtn.addEventListener('click', () => {
+                copyMessage(copyBtn, bubble);
+            });
+
+            // Image preview
+            bubble.querySelectorAll('.chat-img-thumb').forEach(img => {
+                img.addEventListener('click', () => {
+                    openLightbox(img.src);
+                });
+
+                img.addEventListener('error', () => {
+                    img.style.display = 'none';
+                });
+            });
+
+            // Suggested buttons generated by trusted frontend HTML
+            bubble.querySelectorAll('button[data-prompt]').forEach(button => {
+                button.addEventListener('click', () => {
+                    sendQuickPrompt(button.dataset.prompt);
+                });
             });
         }
+
+        chatMessagesEl.appendChild(messageWrapper);
+    });
+
+    scrollToBottom();
+}
+
+
+// ==========================================
+// WELCOME SCREEN
+// ==========================================
+
+function renderWelcomeScreen() {
+    const welcomeDiv = document.createElement('div');
+
+    welcomeDiv.className =
+        'h-full flex flex-col justify-center items-center text-center max-w-xl mx-auto px-2 py-6 animate-fade-in select-none';
+
+    welcomeDiv.innerHTML = `
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/25 mb-5">
+            <i class="fa-solid fa-sun text-2xl animate-spin" style="animation-duration: 25s;"></i>
+        </div>
+
+        <h2 class="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mb-2.5">
+            Hello! How can I help you today?
+        </h2>
+
+        <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 max-w-md">
+            Ask about El Niño, local preparedness, rainfall information, and community assistance in Padre Garcia, Batangas.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+
+            <button onclick="sendQuickPrompt('What is El Niño?')"
+                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                <span class="text-base text-amber-500 mt-0.5"><i class="fa-solid fa-sun"></i></span>
+                <div>
+                    <span class="font-medium block mb-0.5">What is El Niño?</span>
+                    <span class="text-slate-400 text-[11px] block">Understand causes, mechanics & local risks</span>
+                </div>
+            </button>
+
+            <button onclick="sendQuickPrompt('What should I do during El Niño?')"
+                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                <span class="text-base text-sky-500 mt-0.5"><i class="fa-solid fa-faucet-drip"></i></span>
+                <div>
+                    <span class="font-medium block mb-0.5">Preparedness</span>
+                    <span class="text-slate-400 text-[11px] block">Action tips for households & farmers</span>
+                </div>
+            </button>
+
+            <button onclick="sendQuickPrompt('Predict rainfall for May')"
+                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                <span class="text-base text-emerald-500 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <div>
+                    <span class="font-medium block mb-0.5">Predict Rainfall for May</span>
+                    <span class="text-slate-400 text-[11px] block">AI forecasting for Padre Garcia</span>
+                </div>
+            </button>
+
+            <button onclick="sendQuickPrompt('Who to contact during an El Niño emergency?')"
+                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                <span class="text-base text-rose-500 mt-0.5"><i class="fa-solid fa-phone-volume"></i></span>
+                <div>
+                    <span class="font-medium block mb-0.5">Emergency & LGU Contacts</span>
+                    <span class="text-slate-400 text-[11px] block">MDRRMO, RHU & emergency hotlines</span>
+                </div>
+            </button>
+
+        </div>
+    `;
+
+    chatMessagesEl.appendChild(welcomeDiv);
+}
+
+
+// ==========================================
+// SEND MESSAGE
+// ==========================================
+
+async function handleUserSubmit(e) {
+    if (e) e.preventDefault();
+
+    const text = userInputEl.value.trim();
+    if (!text) return;
+
+    messages.push({
+        sender: 'user',
+        text: text,
+        time: getCurrentTime()
+    });
+
+    userInputEl.value = '';
+    renderMessages();
+
+    const typingDiv = document.createElement('div');
+
+    typingDiv.id = 'typing-indicator';
+    typingDiv.className = 'flex items-start gap-3 animate-fade-in my-2';
+
+    typingDiv.innerHTML = `
+        <div class="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white text-xs shadow-md shrink-0 mt-0.5">
+            <i class="fa-solid fa-sun text-sm animate-spin" style="animation-duration: 20s;"></i>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-brand-200/80 dark:border-brand-900/60 rounded-2xl px-4 py-3 shadow-xs flex items-center gap-3">
+            <span class="text-xs font-medium text-brand-600 animate-shimmer">Thinking</span>
+            <div class="flex items-center gap-1.5 pt-1">
+                <span class="w-2.5 h-2.5 bg-brand-500 rounded-full animate-dot-1"></span>
+                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-dot-2"></span>
+                <span class="w-2.5 h-2.5 bg-brand-600 rounded-full animate-dot-3"></span>
+            </div>
+        </div>
+    `;
+
+    chatMessagesEl.appendChild(typingDiv);
+    scrollToBottom();
+
+    try {
+        const [response] = await Promise.all([
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: text,
+                    session_id: sessionId
+                })
+            }),
+            new Promise(resolve => setTimeout(resolve, 750))
+        ]);
+
+        if (!response.ok) {
+            throw new Error('Server returned HTTP ' + response.status);
+        }
+
+        const data = await response.json();
+
+        if (data.session_id) {
+            sessionId = data.session_id;
+            localStorage.setItem('rk_session_id', sessionId);
+        }
+
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) indicator.remove();
+
+        messages.push({
+            sender: 'bot',
+            text: data.reply || 'Sorry, I could not generate a response.',
+            time: getCurrentTime()
+        });
+
+        renderMessages();
+
+    } catch (error) {
+        console.error('Chat request failed:', error);
+
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) indicator.remove();
+
+        messages.push({
+            sender: 'bot',
+            text: '⚠️ Unable to connect to the chatbot server. Please check your connection.',
+            time: getCurrentTime()
+        });
+
+        renderMessages();
+    }
+}
+
+
+// ==========================================
+// QUICK PROMPTS
+// ==========================================
+
+function sendQuickPrompt(promptText) {
+    userInputEl.value = promptText;
+    handleUserSubmit();
+}
+
+
+// ==========================================
+// CLEAR CHAT
+// ==========================================
+
+function clearChat() {
+    newSessionId();
+    messages = [];
+    renderMessages();
+}
+
+
+// ==========================================
+// IMAGE LIGHTBOX
+// ==========================================
+
+function openLightbox(src) {
+    const box = document.getElementById('image-lightbox');
+    const img = document.getElementById('lightbox-img');
+
+    img.src = src;
+    box.classList.add('open');
+}
+
+function closeLightbox(e) {
+    const box = document.getElementById('image-lightbox');
+
+    box.classList.remove('open');
+
+    document.getElementById('lightbox-img').src = '';
+}
+
+
+// ==========================================
+// SCROLL TO BOTTOM
+// ==========================================
+
+function scrollToBottom() {
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
+
+chatMessagesEl.addEventListener('scroll', function () {
+    const dist =
+        chatMessagesEl.scrollHeight -
+        chatMessagesEl.scrollTop -
+        chatMessagesEl.clientHeight;
+
+    if (dist > 120 && messages.length > 0) {
+        scrollBottomBtn.classList.remove('hidden');
+    } else {
+        scrollBottomBtn.classList.add('hidden');
+    }
+});
+
+
+// ==========================================
+// DARK MODE
+// ==========================================
+
+function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+
+    const isDark =
+        document.documentElement.classList.contains('dark');
+
+    const icon = document.getElementById('theme-icon');
+
+    icon.className = isDark
+        ? 'fa-solid fa-sun'
+        : 'fa-solid fa-moon';
+}
+
+
+// ==========================================
+// COPY CHATBOT RESPONSE ONLY
+// ==========================================
+
+async function copyMessage(btn, bubble) {
+    const plainText = bubble.innerText.trim();
+    const icon = btn.querySelector('i');
+
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(plainText);
+        } else {
+            const textarea = document.createElement('textarea');
+
+            textarea.value = plainText;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+
+            const copied = document.execCommand('copy');
+
+            textarea.remove();
+
+            if (!copied) {
+                throw new Error('Copy failed');
+            }
+        }
+
+        icon.className =
+            'fa-solid fa-check text-[11px] text-emerald-500';
+
+        btn.title = 'Copied!';
+
+    } catch (error) {
+        console.error('Copy failed:', error);
+
+        icon.className =
+            'fa-solid fa-xmark text-[11px] text-red-500';
+
+        btn.title = 'Copy failed';
+    }
+
+    setTimeout(() => {
+        icon.className = 'fa-regular fa-copy text-[11px]';
+        btn.title = 'Copy response';
+    }, 1800);
+}
+
+
     </script>
 </body>
 </html>

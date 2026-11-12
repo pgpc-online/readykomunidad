@@ -363,12 +363,12 @@ def chatbot_event_router(user_input):
             "• 💰 **Economic Impact** — Food prices rise due to lower agricultural output\n"
             "• 🏥 **Health Effects** — Higher temperatures increase heatstroke, dehydration, and respiratory issues\n\n"
             "📌 **Para sa mga residente ng Padre Garcia:** Ang pag-intindi ng El Niño ay tumutulong sa iyo na maghanda — "
-            "mag-impok ng tubig, magtanim ng drought-resistant crops, at makinig sa PAGASA advisories.\n\n"
+            "mag-ipon ng tubig, magtanim ng drought-resistant crops, at makinig sa PAGASA advisories.\n\n"
             "💡 *Ask me 'What are the effects of El Niño?' or 'How can I prepare for El Niño?'*"
         )
 
     # 2d. Is El Niño serious? (severity/danger assessment)
-    if any(phrase in clean_input for phrase in ["seryoso ba", "is it serious", "dangerous ba", "nakaka takot ba", "is el nino dangerous", "gaano kaseryoso", "how serious"]):
+    if any(phrase in clean_input for phrase in ["seryoso ba", "is it serious", "dangerous ba", "nakaka takot ba", "is el nino dangerous", "gaano kaseryoso", "how serious", "gaano kalala", "how bad is el nino"]):
         return (
             "🚨 **Gaano Kaseryoso ang El Niño?**\n\n"
             "**Oo, seryoso ito** — lalo na sa mga agricultural communities tulad ng Padre Garcia, Batangas.\n\n"

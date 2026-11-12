@@ -95,6 +95,7 @@ TAGALOG_MARKERS = [
     "paalam", "hanggang", "maraming", "walang", "anuman", "mag-ingat", "ingat",
     # Greeting words
     "magandang", "umaga", "tanghali", "hapon", "gabi", "mabuhay"
+    "gaano", "tagal", "katagal", "kailan"
 ]
 
 def detect_language(text):
@@ -1709,6 +1710,30 @@ def handle_temp_query(padre_garcia_only=False):
 # ==========================================
 
 TOPIC_SUGGESTIONS = {
+    "common_questions": {
+        "en": [
+            "What is the difference between heat exhaustion and heatstroke?",
+            "How long does El Niño last?",
+            "Who should I contact during an emergency?"
+        ],
+        "tl": [
+            "Ano ang pagkakaiba ng heat exhaustion at heat stroke?",
+            "Gaano katagal ang El Niño?",
+            "Sino ang dapat tawagan sa emergency?"
+        ]
+    },
+    "el_nino_discovery": {
+        "en": [
+            "Why is it called El Niño?",
+            "What does the term El Niño mean?",
+            "What is ENSO?"
+        ],
+        "tl": [
+            "Bakit tinatawag na El Niño?",
+            "Ano ang ibig sabihin ng salitang El Niño?",
+            "Ano ang ENSO?"
+        ]
+    },
     # Machine Learning & AI Forecasting
     "ml_model_used": {
         "en": [
@@ -2310,10 +2335,43 @@ def generate_related_questions(topic, user_message, reply_text, is_tl=False):
 # ==========================================
 # MAIN ROUTER
 # ==========================================
+import difflib
 
+TYPO_VOCAB = [
+    "nino", "nina", "affect", "affects", "rainfall", "rain", "drought",
+    "temperature", "prediction", "predict", "forecast", "dehydration",
+    "heatstroke", "exhaustion", "conserve", "health", "agriculture",
+]
+
+def normalize_typos(text):
+    # El Niño / La Niña with extra letters: ninno, niinoo -> nino
+    text = re.sub(r'\bni+n+o+\b', 'nino', text)
+    text = re.sub(r'\bni+n+a+\b', 'nina', text)
+
+    fixed = []
+    for w in text.split():
+        if len(w) >= 4 and w not in TYPO_VOCAB:
+            m = difflib.get_close_matches(w, TYPO_VOCAB, n=1, cutoff=0.85)
+            fixed.append(m[0] if m else w)
+        else:
+            fixed.append(w)
+    return " ".join(fixed)
+
+def is_out_of_scope(text):
+    # math, general knowledge, coding, etc.
+    if re.search(r'\d+\s*[\+\-\*/x×÷]\s*\d+', text):
+        return True
+    return any(k in text for k in [
+        "sagot sa", "answer to", "solve", "calculate", "kwentahin",
+        "who is the president", "sino ang presidente", "recipe", "lutuin",
+        "joke", "biro", "kanta", "song", "movie", "pelikula",
+        "bitcoin", "stock", "basketball", "code", "program",
+    ])
+ 
 def chatbot_event_router(user_input):
     clean_input = user_input.lower().strip()
     clean_input = clean_input.replace('ñ', 'n').replace('é', 'e').replace('í', 'i')
+    clean_input = normalize_typos(clean_input)
 
     # Detect language (Tagalog or English)
     conversation_state["lang"] = detect_language(clean_input)
@@ -2446,7 +2504,13 @@ def chatbot_event_router(user_input):
         )
 
     # 0. ReadyKomunidad-related questions
-    if any(k in clean_input for k in ["what is readykomunidad", "ano ang readykomunidad", "what is this chatbot", "ano itong chatbot", "about this chatbot", "about readykomunidad", "tungkol sa readykomunidad", "ano ito", "pano ito", "who are you", "sino ka", "ano ka", "introduce yourself", "ipakilala mo ang sarili", "readykomunidad", "ReadyKomunidad", "sinoka","anong pangalan mo", "anong pangalan mo", "ano ka", "what are you"]):
+    # AFTER: Use regex word boundaries (\bano ka\b) so it won't match inside "gaano katagal"
+    if any(re.search(r'\b' + re.escape(k) + r'\b', clean_input) for k in [
+        "what is readykomunidad", "ano ang readykomunidad", "what is this chatbot", 
+        "ano itong chatbot", "about this chatbot", "about readykomunidad", 
+        "tungkol sa readykomunidad", "who are you", "sino ka", "ano ka", 
+        "introduce yourself", "ipakilala mo ang sarili", "anong pangalan mo", "what are you"
+    ]):
         return L(
             "🤖 Hi, I am your ReadyKomunidad! \n\n"
             "I'm a bilingual climate awareness chatbot designed to help the residents of **Padre Garcia, Batangas** "
@@ -2500,7 +2564,7 @@ def chatbot_event_router(user_input):
             "💡 *Ang layunin ko ay simple: tulungan ang komunidad na manatiling informed at handa bago dumating ang El Niño.*"
         )
 
-    if any(k in clean_input for k in ["what can you do", "what can this do", "ano magagawa mo", "what are you for", "anong kaya mo", "how can you help", "what can readykomunidad do?", "what can ReadyKomunidad do?", "ano ang magagawa", "anong magagawa", "what topics can you answer", "what can i ask you", "what topics do you cover", "what questions can you answer", "anong mga tanong", "anong paksa", "what subjects", "what can you help me with", "anong maitutulong mo", "ano ang mga kaya mong gawin", "paano mo ako matutulungan"]):
+    if any(k in clean_input for k in ["what can you do", "what can this do", "ano magagawa mo", "what are you for", "anong kaya mo", "how can you help", "what can readykomunidad do?", "what can ReadyKomunidad do?", "ano ang magagawa mo ", "anong magagawa mo", "what topics can you answer", "what can i ask you", "what topics do you cover", "what questions can you answer", "anong mga tanong", "anong paksa", "what subjects", "what can you help me with", "anong maitutulong mo", "ano ang mga kaya mong gawin", "paano mo ako matutulungan"]):
         return L(
             "🌦️ **What Can ReadyKomunidad Do?**\n\n"
             "• **Understanding El Niño** — What El Nino is, its possible effects, and how to prepare for it.\n"
@@ -2518,7 +2582,57 @@ def chatbot_event_router(user_input):
             "• **ML Rainfall Predictions** — Humingi ng rainfall predictions para sa isang buwan/taon hal. *'Hulaan ang ulan para sa May'*\n\n"
             "**Layunin ko na tulungan ang mga residente upang maging handa para sa posibleng epekto ng El Niño.**"
         )
+# ==========================================
+    # COMMON QUESTIONS / FAQS HANDLER
+    # ==========================================
+    if any(k in clean_input for k in [
+        "common questions", "frequently asked questions", "faq", "faqs",
+        "top questions", "popular questions", "karaniwang tanong", "mga karaniwang tanong",
+        "ano ang mga karaniwang tanong", "what are the common questions",
+        "what common questions", "anong madalas itanong", "madalas itanong"
+    ]):
+        conversation_state["last_topic"] = "common_questions"
+        return L(
+            "💡 **Frequently Asked Questions for ReadyKomunidad**\n\n"
+            "Here are the most common questions residents of Padre Garcia ask:\n\n"
+            "☀️ **1. El Niño & Climate Basics**\n"
+            "• *'What is El Niño?'*\n"
+            "• *'What does the term El Niño mean?'*\n"
+            "• *'What is the difference between El Niño and La Niña?'*\n"
+            "• *'How long does El Niño last?'*\n\n"
+            "🌡️ **2. Health & Extreme Heat Safety**\n"
+            "• *'What is the difference between heat exhaustion and heatstroke?'*\n"
+            "• *'What are the signs of dehydration?'*\n"
+            "• *'What should I do during extreme heat?'*\n\n"
+            "📊 **3. Padre Garcia Weather & Forecasts**\n"
+            "• *'How was the rainfall in 2015?'*\n"
+            "• *'Compare 2015 and 2020'* (visual chart)\n"
+            "• *'Predict rain for May'* (AI Machine Learning forecast)\n\n"
+            "☎️ **4. Community & Emergencies**\n"
+            "• *'Who should I contact during an El Niño emergency?'*\n"
+            "• *'What is the MDRRMO hotline number?'*\n"
+            "• *'Where can farmers ask for assistance?'*",
 
+            "💡 **Mga Karaniwang Tanong sa ReadyKomunidad**\n\n"
+            "Narito ang mga madalas itanong ng mga residente ng Padre Garcia:\n\n"
+            "☀️ **1. Kaalaman Ukol sa El Niño at Klima**\n"
+            "• *'Ano ang El Niño?'*\n"
+            "• *'Ano ang ibig sabihin ng salitang El Niño?'*\n"
+            "• *'Ano ang pagkakaiba ng El Niño at La Niña?'*\n"
+            "• *'Gaano katagal ang El Niño?'*\n\n"
+            "🌡️ **2. Kalusugan at Matinding Init**\n"
+            "• *'Ano ang pagkakaiba ng heat exhaustion at heat stroke?'*\n"
+            "• *'Ano ang mga senyales ng dehydration?'*\n"
+            "• *'Ano ang dapat gawin sa matinding init?'*\n\n"
+            "📊 **3. Datos ng Panahon sa Padre Garcia**\n"
+            "• *'Kumusta ang ulan noong 2015?'*\n"
+            "• *'Ihambing ang 2015 at 2020'* (may kasamang chart)\n"
+            "• *'Hulaan ang ulan para sa Mayo'* (AI ML forecast)\n\n"
+            "☎️ **4. Komunidad at Emergency**\n"
+            "• *'Sino ang dapat tawagan sa emergency?'*\n"
+            "• *'Ano ang hotline ng MDRRMO at RHU?'*\n"
+            "• *'Saan maaaring humingi ng tulong ang mga magsasaka?'*"
+        )
     if any(k in clean_input for k in ["ai ka ba", "are you ai", "are you an ai", "are you a bot", "are you a chatbot", "are you a robot"]):
             return L(
                 "🤖 Yes! I am an **AI chatbot!** called **ReadyKomunidad**\n\n"
@@ -2955,7 +3069,50 @@ def chatbot_event_router(user_input):
             "Goodbye! 👋 Stay safe and climate-aware. Come back anytime you have questions!",
             "Paalam! 👋 Mag-ingat at laging maging handa sa climate events. Bumalik ka anytime!"
         )
+    
+        # ---- insult handler ----
+    if any(k in clean_input for k in [
+        "bobo", "tanga", "gago", "tarantado", "ulol", "stupid", "idiot",
+        "dumb", "useless", "walang kwenta", "bwisit"
+    ]):
+        return L(
+            "I'm sorry if I wasn't able to help the way you wanted. 🙏 I'm still learning, and I can only answer "
+            "questions about El Niño, Padre Garcia's climate, and safety tips. "
+            "Tell me what you were trying to find and I'll do my best!",
+            "Pasensya na kung hindi kita natulungan sa gusto mong malaman. 🙏 Natututo pa ako, at El Niño, klima ng "
+            "Padre Garcia, at mga safety tip lang ang kaya kong sagutin. "
+            "Sabihin mo lang kung ano ang hinahanap mo at gagawin ko ang makakaya ko!"
+        )
 
+    # ---- live weather handler ----
+    words = set(re.findall(r"[a-z']+", clean_input))
+    asks_weather = bool(words & {"panahon", "weather", "ulan", "init", "bagyo", "rain", "uulan", "rainfall"})
+    asks_now = bool(words & {
+        "ngayon", "ngayong", "today", "now", "tonight", "mamaya", "bukas",
+        "tomorrow", "current", "kasalukuyan"
+    }) or "this week" in clean_input or "ngayong linggo" in clean_input or "right now" in clean_input
+
+    if asks_weather and asks_now:
+        return L(
+            "🌦️ I don't have live weather data, so I can't tell you today's weather. "
+            "I only use historical records (2010–2026) and ML estimates.\n\n"
+            "For current weather and advisories, please check **PAGASA** ([www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph), hotline **1553**) "
+            "or your local MDRRMO.\n\n"
+            "I can still show past rainfall or predict a month. Try *'Predict rain for May'*.",
+            "🌦️ Wala akong live weather data, kaya hindi ko masasabi ang panahon ngayon. "
+            "Historical records (2010–2026) at ML estimates lang ang gamit ko.\n\n"
+            "Para sa kasalukuyang panahon at advisory, pakitingnan ang **PAGASA** ([www.pagasa.dost.gov.ph](https://www.pagasa.dost.gov.ph), hotline **1553**) "
+            "o ang inyong lokal na MDRRMO.\n\n"
+            "Maaari kitang tulungan sa nakaraang ulan o sa prediksyon. Subukan ang *'Hulaan ang ulan para sa May'*."
+        )
+
+    # ---- out of scope ----
+    if is_out_of_scope(clean_input):
+        return L(
+            "That's outside what I can help with. 😅 I focus on El Niño, its effects, and how to prepare. Try asking me about those!",
+            "Labas na iyan sa kaya kong sagutin. 😅 Nakatuon ako sa El Niño, ang epekto nito sa komunidad, at kung paano maghanda. Subukan mong magtanong tungkol sa mga iyon!"
+        )
+    
     # 1c. Conversational openers — "can I ask?", "may I ask?", etc.
     if any(k in clean_input for k in [
         "can i ask", "can i ask you", "can i ask a question", "can i ask something",
@@ -3225,7 +3382,9 @@ def chatbot_event_router(user_input):
         )
 
     # 3. El Niño vs La Niña difference
-    if any(k in clean_input for k in ["difference between", "el nino vs la nina", "el nino and la nina", "pagkakaiba ng el nino at la nina", "el nino at la nina", "pagkakaiba", "ano ang pagkakaiba"]):
+    if ("el nino" in clean_input and "la nina" in clean_input) or any(k in clean_input for k in [
+    "el nino vs la nina", "la nina vs el nino", 
+    "pagkakaiba ng el nino at la nina", "difference between el nino and la nina", "el nino and la nina difference", "el nino la nina comparison",]):
         conversation_state["last_topic"] = "enso_difference"
         return L(
             "🌊🌧️ **El Niño vs La Niña — What's the Difference?**\n\n"
@@ -3251,7 +3410,7 @@ def chatbot_event_router(user_input):
         )
 
     # 3. What is El Niño?
-    if any(k in clean_input for k in ["what is el nino", "what is el niño", "define el nino", "define el niño", "definition of el nino", "explain el nino", "meaning of el nino", "ano ang el nino", "ano ang el niño", "el nino what", "el niño what", "about el nino", "tungkol sa el nino", "ipaliwanag ang el nino", "ibig sabihin ng el nino"]):
+    if any(k in clean_input for k in ["what is el nino", "what is el niño", "define el nino", "define el niño", "definition of el nino", "explain el nino", "meaning of el nino", "ano ang el nino", "ano ang el niño", "el nino what", "el niño what", "about el nino", "tungkol sa el nino", "ipaliwanag ang el nino", "ibig sabihin ng el nino" , "el nino definition", "el niño definition","ano yung el nino", "ano yung el niño"]):
         conversation_state["last_topic"] = "el_nino_definition"
         return L(
             "🌊 **What is El Niño?**\n"
@@ -3281,7 +3440,7 @@ def chatbot_event_router(user_input):
         "why is it called el nino", "why el nino is called", "why is el nino called",
         "where did el nino get its name", "origin of el nino name", "name el nino",
         "bakit tinatawag na el nino", "sino nagpangalan ng el nino", "origin ng pangalan ng el nino",
-        "why named el nino", "what does el nino mean", "meaning of the name el nino"
+        "why named el nino", "what does el nino mean", "meaning of the name el nino", "el nino name origin", "el nino name meaning"
     ]):
         conversation_state["last_topic"] = "el_nino_name_origin"
         return L(
@@ -3298,7 +3457,43 @@ def chatbot_event_router(user_input):
             "Sa paglipas ng panahon, ginamit ng mga siyentipiko ang pangalang ito para ilarawan ang mas malawak na climate phenomenon — ang pana-panahong pag-init ng central at eastern Pacific Ocean na nagdudulot ng disruption sa global weather patterns.\n\n"
             "🇵🇭 *Para sa Pilipinas, ang El Niño ay karaniwang nagdudulot ng below-normal rainfall, mas dry na kondisyon, at mas mataas na temperature — lalo na nakakaapekto sa mga farming communities tulad ng Padre Garcia, Batangas.*"
         )
+# ==========================================
+    # WHO DISCOVERED EL NIÑO & LA NIÑA
+    # ==========================================
+    if any(k in clean_input for k in [
+        "who discovered el nino", "who discovered la nina", "who discovered enso",
+        "sino ang nakatuklas ng el nino", "sino nakadiskubre ng el nino", "sino nakadiskubre ng la nina",
+        "sino ang nakatuklas ng la nina", "history of discovery el nino", "discovery of el nino"
+    ]):
+        conversation_state["last_topic"] = "el_nino_discovery"
+        return L(
+            "🧭 **Who Discovered El Niño and La Niña?**\n\n"
+            "The discovery of El Niño and La Niña happened in stages through local observation and scientific research:\n\n"
+            "🐟 **1. Peruvian Fishermen (1600s)**\n"
+            "Fishermen along the coast of northern Peru were the first to notice that warm ocean currents arrived every few years around December, drastically reducing their fish catch. They nicknamed the warm current ***El Niño de Navidad*** (The Christ Child).\n\n"
+            "📜 **2. Captain Camilo Carrillo (1892)**\n"
+            "Captain Carrillo formally documented the local fishermen's knowledge and presented it to the **Geographical Society of Lima**, giving El Niño its first formal scientific record.\n\n"
+            "🔬 **3. Sir Gilbert Walker (1920s)**\n"
+            "British mathematician Sir Gilbert Walker discovered the **Southern Oscillation** — proving that atmospheric pressure shifts in the Pacific Ocean were directly linked to Asian monsoon failures and droughts.\n\n"
+            "🌊 **4. Jacob Bjerknes (1969)**\n"
+            "Meteorologist Jacob Bjerknes connected ocean warming to Walker's atmospheric pressure cycle, establishing what we now call **ENSO (El Niño–Southern Oscillation)**.\n\n"
+            "👧 **What about La Niña?**\n"
+            "La Niña (the cool counterpart) was formally recognized and named by oceanographers and scientists in the **1980s** (notably popularized by Dr. George Philander) to distinguish the cooling phase from El Niño.",
 
+            "🧭 **Sino ang Nakatuklas ng El Niño at La Niña?**\n\n"
+            "Ang pagkakatuklas ng El Niño at La Niña ay naganap sa pamamagitan ng obserbasyon ng mga komunidad at pagsasaliksik ng mga siyentipiko:\n\n"
+            "🐟 **1. Mga Mangingisdang Peruano (1600s)**\n"
+            "Ang mga mangingisda sa baybayin ng hilagang Peru ang unang nakapansin sa biglaang pag-init ng dagat tuwing Disyembre, na nagtataboy sa mga isda. Tinawag nila itong ***El Niño de Navidad*** dahil dumarating ito tuwing kapaskuhan.\n\n"
+            "📜 **2. Captain Camilo Carrillo (1892)**\n"
+            "Si Kapitan Carrillo ang unang opisyal na nagtala sa kaalaman ng mga mangingisda at nagpresenta nito sa **Geographical Society of Lima**.\n\n"
+            "🔬 **3. Sir Gilbert Walker (1920s)**\n"
+            "Natuklasan ng British scientist na si Gilbert Walker ang **Southern Oscillation** — patunay na ang pagbabago ng presyon ng hangin sa Pacific Ocean ay may direktang kaugnayan sa tagtuyot sa Asya.\n\n"
+            "🌊 **4. Jacob Bjerknes (1969)**\n"
+            "Pinag-isa ng meteorologist na si Jacob Bjerknes ang init ng dagat at presyon ng hangin, na kinikilala natin ngayon bilang **ENSO (El Niño–Southern Oscillation)**.\n\n"
+            "👧 **Sino naman ang nakatuklas sa La Niña?**\n"
+            "Ang terminong **La Niña** (ang malamig na phase) ay pormal na ipinakilala ng mga oceanographer at meteorologist noong **1980s** (partikular na si Dr. George Philander) upang maging katapat ng El Niño."
+        )
+    
     # CL-NEW-2. Why is it called La Niña?
     if any(k in clean_input for k in [
         "why is it called la nina", "why la nina is called", "why is la nina called",
@@ -3319,7 +3514,47 @@ def chatbot_event_router(user_input):
             "Ang termino ay pormal na ginamit noong **1980s** nang nais ng mga siyentipiko ng isang malinaw at simpleng paraan para makilala ang dalawang magkasalungat na phases ng **ENSO cycle**.\n\n"
             "🌧️ *Habang ang El Niño ay nagdadala ng tagtuyot at init sa Pilipinas, ang La Niña naman ay nagdadala ng kabaligtaran — above-normal na ulan, mas malakas na bagyo, at mas mataas na risk ng pagbaha.*"
         )
+# ==========================================
+    # TERM MEANINGS & ORIGINS (EL NIÑO & LA NIÑA)
+    # ==========================================
+    if any(k in clean_input for k in [
+        "meaning of term el nino", "what does term el nino mean", "what does the term el nino mean",
+        "term el nino mean", "ibig sabihin ng salitang el nino", "kahulugan ng salitang el nino",
+        "ano ang ibig sabihin ng el nino", "ano ang ibig sabihin ng salitang el nino",
+        "why is it called el nino", "origin of el nino name", "name el nino", "el nino meaning"
+    ]) and not any(k in clean_input for k in ["la nina", "difference", "pagkakaiba"]):
+        conversation_state["last_topic"] = "el_nino_name_origin"
+        return L(
+            "📖 **What Does the Term 'El Niño' Mean?**\n\n"
+            "• **Literal Meaning:** In Spanish, **El Niño** translates to **'The Little Boy'** or with capitalization, **'The Christ Child'** (*Santo Niño*).\n"
+            "• **Origin:** Named by Peruvian fishermen in the 1600s because the unusual warm ocean currents peaked around **December (Christmas season)**.\n"
+            "• **Meteorological Meaning:** Today, it refers to the **abnormal warming of sea surface temperatures** across the central and eastern equatorial Pacific Ocean, bringing drier conditions, delayed rains, and higher heat to the Philippines and Padre Garcia.",
 
+            "📖 **Ano ang Ibig Sabihin ng Salitang 'El Niño'?**\n\n"
+            "• **Literal na Kahulugan:** Sa wikang Espanyol, ang **El Niño** ay nangangahulugang **'Ang Batang Lalaki'** o kapag naka-capital, **'Ang Batang Hesus'** (*Santo Niño*).\n"
+            "• **Pinagmulan:** Ipinangalan ito ng mga mangingisda sa Peru noong 1600s dahil ang pag-init ng karagatan ay sumusulpot tuwing kapaskuhan o buwan ng **Disyembre**.\n"
+            "• **Kahulugan sa Panahon (Meteorology):** Tumutukoy ito sa **hindi pangkaraniwang pag-init ng karagatan sa Pacific Ocean**, na nagdudulot ng tagtuyot, kakulangan sa ulan, at matinding init sa Pilipinas at bayan ng Padre Garcia."
+        )
+
+    if any(k in clean_input for k in [
+        "meaning of term la nina", "what does term la nina mean", "what does the term la nina mean",
+        "term la nina mean", "ibig sabihin ng salitang la nina", "kahulugan ng salitang la nina",
+        "ano ang ibig sabihin ng la nina", "ano ang ibig sabihin ng salitang la nina",
+        "why is it called la nina", "origin of la nina name", "name la nina", "la nina meaning"
+    ]) and not any(k in clean_input for k in ["el nino", "difference", "pagkakaiba"]):
+        conversation_state["last_topic"] = "la_nina_name_origin"
+        return L(
+            "📖 **What Does the Term 'La Niña' Mean?**\n\n"
+            "• **Literal Meaning:** In Spanish, **La Niña** translates to **'The Little Girl.'**\n"
+            "• **Origin:** Coined in the 1980s by climate scientists as the natural, feminine counterpart to *El Niño* (The Little Boy).\n"
+            "• **Meteorological Meaning:** It describes the **abnormal cooling of sea surface temperatures** in the equatorial Pacific, resulting in above-normal rainfall, stronger monsoons, and higher flood risks in the Philippines.",
+
+            "📖 **Ano ang Ibig Sabihin ng Salitang 'La Niña'?**\n\n"
+            "• **Literal na Kahulugan:** Sa wikang Espanyol, ang **La Niña** ay nangangahulugang **'Ang Batang Babae.'**\n"
+            "• **Pinagmulan:** Ginawa itong termino ng mga climate scientists noong dekada 1980 bilang direktang katambal at kabaligtaran ng *El Niño* (Ang Batang Lalaki).\n"
+            "• **Kahulugan sa Panahon (Meteorology):** Tumutukoy ito sa **hindi karaniwang paglamig ng tubig sa Pacific Ocean**, na nagdudulot ng mas malalakas na pag-ulan, baha, at mas aktibong mga bagyo sa Pilipinas."
+        )
+    
     # CL-NEW-3. Is El Niño dangerous?
     if any(k in clean_input for k in [
         "is el nino dangerous", "is el nino harmful", "is el nino bad",
@@ -3404,7 +3639,7 @@ def chatbot_event_router(user_input):
         )
     
     # NEW-3. Is El Niño serious? (severity/danger assessment)
-    if any(phrase in clean_input for phrase in ["seryoso ba", "is it serious", "dangerous ba", "nakaka takot ba", "is el nino dangerous", "gaano kaseryoso", "how serious", "seryoso ba ito", "seryoso ba ang el nino"]):
+    if any(phrase in clean_input for phrase in ["seryoso ba", "is it serious", "dangerous ba", "nakaka takot ba", "is el nino dangerous", "gaano kaseryoso", "how serious", "seryoso ba ito", "seryoso ba ang el nino", "seryoso ang el nino", "delikado ba ang el nino", "is el nino dangerous", "is  el nino a threat", "seryoso yung el nino", "is el nino a threat", "is el nino a big deal", "is el nino a big problem", "el nino serious", "el nino dangerous", "el nino threat"]):
         return L(
             "🚨 **How Serious is El Niño?**\n\n"
             "**Yes, it is serious** — especially for agricultural communities like Padre Garcia, Batangas.\n\n"
@@ -3469,7 +3704,7 @@ def chatbot_event_router(user_input):
         "what should i prepare", "what should i prepare for el nino", "how to prepare for el nino",
         "ano ang dapat ihanda", "paano maghanda para sa el nino", "ano ang dapat kong ihanda",
         "preparation for el nino", "paghahanda para sa el nino", "how can i prepare",
-        "paano ako maghahanda", "ano ang kailangan ihanda"
+        "paano ako maghahanda", "ano ang kailangan ihanda", "el nino preparation", "el nino preparations", "el nino tips", "el nino checklist", "ano ang dapat gawin para sa el nino", "el nino survival tips", "el nino survival guide", "maging handa sa el niño", "maging handa para sa el niño", "maging ready sa el nino", "maging ready sa panahon ng el nino", "paano maging ready sa el nino"
     ]):
         conversation_state["last_topic"] = "el_nino_preparation"
         return L(
@@ -3552,25 +3787,60 @@ def chatbot_event_router(user_input):
         )
 
     # CL-6. How long does El Niño last?
-    if any(k in clean_input for k in ["how long does el nino last", "gaano katagal ang el nino", "how long el nino", "duration of el nino", "tagal ng el nino", "gaano katagal", "how many months", "ilang buwan ang el nino"]):
+    # ==========================================
+    # DURATION CHECKS (EL NIÑO, LA NIÑA, OR BOTH)
+    # ==========================================
+    # Check 1: Asked about BOTH
+    if any(k in clean_input for k in ["gaano katagal", "how long", "duration", "tagal", "ilang buwan"]) \
+       and ("el nino" in clean_input and "la nina" in clean_input):
+        conversation_state["last_topic"] = "el_nino_duration"
+        return L(
+            "⏱️ **How Long Do El Niño and La Niña Last?**\n\n"
+            "• **El Niño:** Typically lasts **9 to 12 months**, though strong events (such as in 2015–2016) can persist for up to 18 months.\n"
+            "• **La Niña:** Usually lasts **9 to 12 months**, but can occasionally persist for **2 to 3 years** (known as a 'multi-year event').\n\n"
+            "🔄 Both occur irregularly every **2 to 7 years** as part of the natural ENSO cycle.",
+
+            "⏱️ **Gaano Katagal ang El Niño at La Niña?**\n\n"
+            "• **El Niño:** Karaniwang tumatagal ng **9 hanggang 12 buwan**, bagamat ang malalakas na yugto (tulad noong 2015–2016) ay maaaring tumagal ng hanggang 18 buwan.\n"
+            "• **La Niña:** Karaniwang tumatagal ng **9 hanggang 12 buwan**, ngunit maaari ring manatili ng **2 hanggang 3 taon** (tinatawag na 'multi-year event').\n\n"
+            "🔄 Ang dalawang penomenon ay bumabalik bawat **2 hanggang 7 taon** bilang bahagi ng natural na ENSO cycle."
+        )
+
+    # Check 2: La Niña duration specifically
+    if "la nina" in clean_input and any(k in clean_input for k in ["how long", "gaano katagal", "duration", "tagal", "ilang buwan"]):
+        conversation_state["last_topic"] = "la_nina_duration"
+        return L(
+            "⏱️ **How Long Does La Niña Last?**\n\n"
+            "A typical La Niña event lasts about **9 to 12 months**.\n\n"
+            "However, unlike El Niño, La Niña is more prone to becoming a **multi-year event**, meaning it can last **2 or even 3 consecutive years** (e.g., 2020–2023).\n\n"
+            "It usually develops between June and August, peaks between December and February, and dissipates by March to May.",
+
+            "⏱️ **Gaano Katagal ang La Niña?**\n\n"
+            "Ang isang karaniwang La Niña ay tumatagal ng mga **9 hanggang 12 buwan**.\n\n"
+            "Gayunpaman, mas madalas maging **multi-year event** ang La Niña kumpara sa El Niño, na nangangahulugang maaari itong magpatuloy sa loob ng **2 hanggang 3 magkakasunod na taon** (tulad noong 2020–2023).\n\n"
+            "Karaniwan itong nagsisimula sa Hunyo–Agosto, sumusukdol sa Disyembre–Pebrero, at humuhupa pagsapit ng Marso–Mayo."
+        )
+
+    # Check 3: El Niño duration
+    if any(k in clean_input for k in [
+        "how long does el nino last", "gaano katagal ang el nino", "how long el nino",
+        "duration of el nino", "tagal ng el nino", "ilang buwan ang el nino"
+    ]) or (any(k in clean_input for k in ["gaano katagal", "how long", "duration"]) and "el nino" in clean_input):
         conversation_state["last_topic"] = "el_nino_duration"
         return L(
             "⏱️ **How Long Does El Niño Last?**\n\n"
-            "A typical El Niño event lasts about **9 to 12 months**, though stronger events can persist for **18 months or more**.\n\n"
-            "📅 **General timeline:**\n"
-            "• El Niño usually develops between **April and June**\n"
-            "• It peaks in intensity around **December to January** (this is why it was named 'El Niño' — the Christ child — by South American fishermen who noticed the warm current around Christmas)\n"
-            "• It typically weakens and ends by **March to May** of the following year\n\n"
-            "🔄 After it ends, conditions either return to **Neutral** or shift to **La Niña**. The full ENSO cycle from one El Niño to the next typically takes **2 to 7 years**.\n\n"
-            "💡 *The 2015–2016 El Niño was one of the strongest on record and lasted roughly 18 months, significantly affecting rainfall across Padre Garcia and the rest of the Philippines.*",
+            "A typical El Niño event lasts around **9 to 12 months**.\n\n"
+            "• It typically begins to develop between **April and June**.\n"
+            "• It reaches peak intensity between **November and January**.\n"
+            "• It gradually weakens and ends between **March and May** of the following year.\n\n"
+            "In exceptional cases, such as the severe 1997–1998 and 2015–2016 episodes, impacts lasted nearly **18 months**.",
+
             "⏱️ **Gaano Katagal ang El Niño?**\n\n"
-            "Ang typical na El Niño event ay tumatagal ng mga **9 hanggang 12 buwan**, pero ang mas malakas na events ay maaaring tumagal ng **18 buwan o higit pa**.\n\n"
-            "📅 **General timeline:**\n"
-            "• Karaniwang nag-develop ang El Niño sa pagitan ng **April at June**\n"
-            "• Naaabot ang peak ng intensity nito sa paligid ng **December hanggang January** (kaya tinawag itong 'El Niño' — the Christ child — ng mga South American fishermen na napansin ang mainit na current malapit sa Pasko)\n"
-            "• Karaniwang humihina at nagtatapos ito sa **March hanggang May** ng susunod na taon\n\n"
-            "🔄 Pagkatapos, bumabalik ang mga kondisyon sa **Neutral** o lumilipat sa **La Niña**. Ang buong ENSO cycle mula sa isang El Niño hanggang sa susunod ay karaniwang tumatagal ng **2 hanggang 7 taon**.\n\n"
-            "💡 *Ang 2015–2016 El Niño ay isa sa pinaka-malakas na naitala at tumagal ng mga 18 buwan, na malaki ang epekto sa rainfall sa Padre Garcia at sa buong Pilipinas.*"
+            "Ang karaniwang El Niño ay tumatagal ng humigit-kumulang **9 hanggang 12 buwan**.\n\n"
+            "• Karaniwan itong nagsisimulang mabuo sa pagitan ng **Abril at Hunyo**.\n"
+            "• Naaabot nito ang pinakamatinding antas sa pagitan ng **Nobyembre at Enero**.\n"
+            "• Unti-unti itong humihina at nagwawakas sa pagitan ng **Marso at Mayo** ng susunod na taon.\n\n"
+            "Sa mga pambihirang pagkakataon (tulad noong 1997–1998 at 2015–2016), ang matinding tagtuyot ay tumagal ng halos **18 buwan**."
         )
 
     # CL-7. What is ENSO?
@@ -3684,14 +3954,21 @@ def chatbot_event_router(user_input):
         )
 
     # CL2-NEW. Does El Niño reduce rainfall?
+        # CL2-NEW. Does El Niño reduce rainfall?
     if any(k in clean_input for k in [
-        "reduce rainfall", "reduces rainfall", "el nino reduce rain", "does el nino reduce",
+        "reduce rainfall", "reduces rainfall", "el nino reduce", "does el nino reduce",
         "less rainfall", "less rain", "lower rainfall", "bawasan ang ulan",
         "nagbabawas ng ulan", "nagbabawas ba ng ulan", "does el nino lower rainfall",
         "can el nino reduce", "kaunting ulan", "mas kaunting ulan el nino",
         "rainfall decrease", "decrease rainfall", "decrease in rainfall",
         "pagbaba ng ulan", "bumababa ang ulan"
-    ]):
+    ]) or (
+        "el nino" in clean_input
+        and any(k in clean_input for k in [
+            "apektado", "naaapektuhan", "nakakaapekto", "epekto", "affect", "effect", "impact"
+        ])
+        and any(k in clean_input for k in ["ulan", "rain", "rainfall", "pag-ulan"])
+    ):
         conversation_state["last_topic"] = "el_nino_reduce_rainfall"
         return L(
             "🌧️ **Can El Niño Reduce Rainfall?**\n\n"
@@ -3880,7 +4157,8 @@ def chatbot_event_router(user_input):
         )
 
     # CL2-7. Can El Niño affect people's health?
-    if any(k in clean_input for k in ["affect health", "affect people", "health effects", "health impact", "kalusugan", "epekto sa kalusugan", "malusog", "people health", "human health", "nakakaapekto sa kalusugan", "nakakaapekto sa tao"]):
+    if any(k in clean_input for k in ["affect health", "affect people", "health effects", "health impact", "kalusugan", "epekto sa kalusugan", "malusog", "people health", "human health", "nakakaapekto sa kalusugan", "nakakaapekto sa tao", "health risk", "health risks", "risks sa kalusugan", "panganib sa kalusugan",
+"risk sa kalusugan", "health ng el nino", "masama sa kalusugan", "masama sa tao", "nakakasama sa kalusugan", "nakakasama sa tao", "nakakaapekto sa katawan", "nakakaapekto sa pisikal na kalusugan"]):
         conversation_state["last_topic"] = "el_nino_health"
         return L(
             "🏥 **Can El Niño Affect People's Health?**\n\n"
@@ -4233,7 +4511,7 @@ def chatbot_event_router(user_input):
             "• **Community Safety:** LGUs and barangay officials can act early and manage resources proactively.\n"
             "• **Health Protection:** Awareness helps residents avoid heat-related illnesses during El Niño months.",
             "💡 **Bakit Dapat Malaman ng mga Residents ng Padre Garcia ang El Niño?**\n"
-            "• **Early Preparation:** Maaaring mag-impok ng water at magplano nang mas maaga ang mga pamilya at farmers bago dumating ang dry spells.\n"
+            "• **Early Preparation:** Maaaring mag-ipon ng water at magplano nang mas maaga ang mga pamilya at farmers bago dumating ang dry spells.\n"
             "• **Protect Livelihoods:** Maaaring lumipat sa drought-tolerant crops o ayusin ang planting schedules.\n"
             "• **Community Safety:** Maaaring maagap kumilos ang LGU at mga barangay officials at pamahalaan ang resources nang proactive.\n"
             "• **Health Protection:** Ang awareness ay nakakatulong sa mga residente na iwasan ang heat-related illnesses sa panahon ng El Niño."
@@ -4271,7 +4549,7 @@ def chatbot_event_router(user_input):
                 "🛡️ **Ano ang Dapat Gawin Sa Panahon ng El Niño?**\n\n"
                 "Narito ang mga general tips sa preparedness para sa mga households at community:\n\n"
                 "💧 **Water Conservation:**\n"
-                "• Mag-impok ng malinis na water sa mga covered containers bago sumukdol ang dry season\n"
+                "• Mag-ipon ng malinis na water sa mga covered containers bago sumukdol ang dry season\n"
                 "• Ayusin ang mga tumutulong pipes at gripo upang maiwasan ang pag-aaksaya\n"
                 "• Gamitin muli ang water kung maaari (hal. wash water para sa mga halaman)\n"
                 "• Limitahan ang non-essential water use tulad ng paghuhugas ng sasakyan\n\n"
@@ -4281,7 +4559,7 @@ def chatbot_event_router(user_input):
                 "• Gumamit ng mulching upang mapanatili ang soil moisture nang mas matagal\n"
                 "• Suriin ang mga irrigation systems at water storage bago ang dry season\n\n"
                 "🏠 **Para sa mga Households:**\n"
-                "• Mag-impok ng essential food at supplies nang mas maaga\n"
+                "• Mag-ipon ng essential food at supplies nang mas maaga\n"
                 "• Panatilihing hydrated ang mga miyembro ng pamilya — lalo na ang mga bata at matatanda\n"
                 "• Iwasan ang mga outdoor activities sa pinakamainit na bahagi ng araw\n"
                 "• Bantayan ang mga signs ng heat exhaustion: dizziness, excessive sweating, weakness\n\n"
@@ -4293,7 +4571,8 @@ def chatbot_event_router(user_input):
             )
 
     # CL3-2. How can I conserve water?
-    if any(k in clean_input for k in ["conserve water", "save water", "water conservation", "tipid sa tubig", "makatipid ng tubig", "pag-iingat ng tubig", "how to save water", "how to conserve", "pagtipid ng tubig", "save safe water"]):
+    if any(k in clean_input for k in ["conserve water", "save water", "water conservation", "tipid sa tubig", "makatipid ng tubig", "pag-iingat ng tubig", "how to save water", "how to conserve", "pagtipid ng tubig", "save safe water", "makakatipid", "magtipid ng tubig", "pagtitipid ng tubig", "tipid ng tubig",
+"makatipid sa tubig", "makakatipid ng tubig", "paano magtipid ng tubig", "paano makatipid ng tubig", "paano magtipid sa tubig", "paano makatipid sa tubig"]):
         conversation_state["last_topic"] = "water_conservation"
         return L(
             "💧 **How Can I Conserve Water During El Niño?**\n\n"
@@ -4483,7 +4762,43 @@ def chatbot_event_router(user_input):
             "• Paghinto ng pagpapawis kahit mainit pa\n\n"
             "💡 *Ang heat exhaustion ay maaaring lumala sa heat stroke sa loob ng ilang minuto. Huwag balewalain ang mga maagang senyales.*\n\n"
         )
+# ==========================================
+    # HEAT EXHAUSTION VS HEATSTROKE (COMPARISON)
+    # ==========================================
+    if any(k in clean_input for k in [
+        "heat exhaustion at heat stroke", "heat exhaustion and heat stroke",
+        "heat exhaustion vs heat stroke", "heat stroke vs heat exhaustion",
+        "difference between heat exhaustion", "pagkakaiba ng heat exhaustion",
+        "heatstroke vs heat exhaustion", "pagkakaiba ng heat stroke at heat exhaustion"
+    ]):
+        conversation_state["last_topic"] = "heat_exhaustion_action"
+        return L(
+            "⚖️ **Heat Exhaustion vs. Heatstroke: What is the Difference?**\n\n"
+            "Both are heat-related illnesses, but **heatstroke is a life-threatening medical emergency**.\n\n"
+            "| Feature | 🟡 Heat Exhaustion | 🔴 Heatstroke (Critical) |\n"
+            "| :--- | :--- | :--- |\n"
+            "| **Severity** | Serious warning sign | **Life-Threatening Emergency** |\n"
+            "| **Mental State** | Dizzy, tired, but alert | **Confused, delirious, unconscious, seizures** |\n"
+            "| **Body Temp** | Usually under 40°C | **Exceeds 40°C (104°F)** |\n"
+            "| **Sweating** | **Heavy sweating** | Skin is hot/dry (or sweating profusely) |\n"
+            "| **Skin Feeling** | Cool, pale, clammy | Hot, flushed, and dry or damp |\n"
+            "| **Pulse** | Fast and weak | Fast and pounding/strong |\n"
+            "| **Action** | Move to shade, drink water slowly | **Call 911 / MDRRMO immediately, active cooling** |\n\n"
+            "💡 *Key Rule:* If the person exhibits **confusion, slurred speech, seizures, or passes out**, treat it immediately as **heatstroke** and call emergency responders.",
 
+            "⚖️ **Pagkakaiba ng Heat Exhaustion at Heatstroke**\n\n"
+            "Pareho silang sakit dulot ng matinding init, ngunit ang **heatstroke ay nakamamatay at nangangailangan ng agarang ospital**.\n\n"
+            "| Katangian | 🟡 Heat Exhaustion | 🔴 Heatstroke (Kritikal) |\n"
+            "| :--- | :--- | :--- |\n"
+            "| **Lala ng Kondisyon** | Babala sa katawan | **Banta sa Buhay (Emergency)** |\n"
+            "| **Isip at Kamalayan** | Nahihilo, pagod, ngunit gising | **Nalilito, nawawalan ng malay, nangingisay** |\n"
+            "| **Temperatura** | Karaniwang mababa sa 40°C | **Lampas 40°C (104°F)** |\n"
+            "| **Pagpapawis** | **Sobrang pagpapawis** | Napakainit ng balat (maaaring tuyo o basang-basa) |\n"
+            "| **Pakiramdam sa Balat**| Malamig at malagkit | Napakainit at namumula |\n"
+            "| **Pulso** | Mabilis ngunit mahina | Mabilis at malakas tumibok |\n"
+            "| **Hakbang** | Pumunta sa lilim, uminom ng tubig | **Tumawag agad sa 911 / MDRRMO, palamigin ang katawan** |\n\n"
+            "💡 *Tandaan:* Kapag ang pasyente ay **nalilito na, hindi makapagsalita nang maayos, o nawalan ng malay**, ito ay **heatstroke** na — tumawag agad ng ambulansya!"
+        )
     # CL-NEW-10. What is heatstroke?
     # 1. HEATSTROKE (Priority: Medical Emergency)
     if any(k in clean_input for k in [
@@ -5808,10 +6123,20 @@ def chatbot_event_router(user_input):
             "📍 *Sa Padre Garcia, Batangas, ang drought conditions ay pinakamalamang sa panahon ng El Niño months kapag ang local rainfall ay malaki ang pagbaba mula sa monthly average.*"
         )
 
-    # 9. ENSO + station matchers
+        # 9. ENSO + station matchers
     if any(k in clean_input for k in ["el nino", "drought", "dry", "tagtuyot", "tagtuyo", "tuyo"]):
+
+        # Only serve the Padre Garcia stats card when the user is asking for data
+        wants_data = any(k in clean_input for k in [
+            "data", "rainfall", "rain", "ulan", "temperature", "temp",
+            "statistics", "stats", "average"
+        ])
+
+        if not wants_data:
+            pass  # let the knowledge base / fallback handle it
+
         # Don't intercept ENSO–El Niño relationship questions — handled above
-        if any(k in clean_input for k in [
+        elif any(k in clean_input for k in [
             "enso", "related to el nino", "how is enso", "enso and el nino",
             "el nino and enso", "enso vs el nino", "el nino vs enso",
             "relationship between enso", "relationship between el nino and enso",
@@ -5847,18 +6172,18 @@ def chatbot_event_router(user_input):
         elif padre_garcia_only:
             return handle_el_nino_padre_garcia()
         else:
-            # If Station Comparison Mode is active, show all 3 stations
             if conversation_state.get("station_mode", False):
                 return handle_el_nino_general()
-            # Otherwise, default to Padre Garcia
             return handle_el_nino_padre_garcia()
 
     if any(k in clean_input for k in ["la nina", "flood", "pagbaha"]) or re.search(r'\bbaha\b', clean_input):
         return handle_la_nina_general()
 
-    if any(k in clean_input for k in ["rain", "precipitation", "rainfall", "wettest", "ulan", "pag-ulan", "pinakamalakas na ulan"]):
+    if any(k in clean_input for k in ["rain", "precipitation", "rainfall", "wettest", "driest", "ulan", "pag-ulan", "pinakamalakas na ulan"]) \
+   and any(k in clean_input for k in ["record", "wettest", "driest", "highest", "lowest", "all-time", "all time",
+                                      "pinakamalakas", "pinakamahina", "pinakamataas", "pinakamababa"]):
         # Don't intercept rainwater harvesting questions — let them fall to KB
-        if any(k in clean_input for k in ["harvest", "rainwater", "collect", "store water", "impok"]):
+        if any(k in clean_input for k in ["harvest", "rainwater", "collect", "store water", "impok", "ipon", "imbak ng tubig", "tubig-ulan"]):
             pass
         # Don't intercept month comparison questions
         elif any(k in clean_input for k in ["compare", "vs", "versus", "ihambing", "pagkakaiba", "difference between"]) and any(k in clean_input for k in ["month", "months", "buwan"]):
@@ -5945,9 +6270,21 @@ def chatbot_event_router(user_input):
             "• Magtipun-tipon sa ligtas na distansya mula sa gusali\n\n"
             "📍 *Ang Padre Garcia Fire Station ay matatagpuan sa Barangay San Miguel, Padre Garcia, Batangas.*"
         )
+    # Try to guess the closest known question
+    pool_en = list(dict.fromkeys(q for t in TOPIC_SUGGESTIONS.values() for q in t["en"]))
+    pool_tl = list(dict.fromkeys(q for t in TOPIC_SUGGESTIONS.values() for q in t["tl"]))
+    pool = pool_tl if conversation_state.get("lang") == "tl" else pool_en
+    suggestions = difflib.get_close_matches(clean_input, pool, n=3, cutoff=0.6)
 
+    if suggestions:
+        hint = "\n".join(f"• *'{s}'*" for s in suggestions)
+        return L(
+            f"Hmm, I'm not sure I understood that. 🤔 Did you mean one of these?\n{hint}",
+            f"Hmm, hindi ko sigurado kung naintindihan ko iyon. 🤔 Ito ba ang ibig mong sabihin?\n{hint}"
+        )
+    
     return L(
-        "I'm not sure I understood that because it's out of my knowledge. Here are some things you can ask me:\n"
+        "Sorry, I didn't quite get that. 😅 Try asking one of these instead:\n"
         "• *'What is El Niño?'*\n"
         "• *'What are the effects of El Niño?'*\n"
         "• *'What is the difference between El Niño and La Niña?'*\n"
@@ -5955,7 +6292,7 @@ def chatbot_event_router(user_input):
         "• *'How was the weather in 2015?'*\n"
         "• *'Compare 2015 and 2020'*\n"
         "• *'Predict rain for May'*",
-        "Hindi ko naintindihan yun kase hindi na s'ya abot ng aking kakayanan. Narito ang ilang bagay na maaari mong itanong:\n"
+         "Pasensya na, hindi ko masyadong naintindihan iyon. 😅 Narito ang ilang bagay na maaari mong itanong:\n"
         "• *'Ano ang El Niño?'*\n"
         "• *'Ano ang mga epekto ng El Niño?'*\n"
         "• *'Ano ang pagkakaiba ng El Niño at La Niña?'*\n"
