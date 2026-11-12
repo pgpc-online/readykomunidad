@@ -91,13 +91,31 @@ def label_oni(value):
     elif v >= -1.5: return f"{v:.2f} — Moderate La Niña 🌧️🌧️"
     else:           return f"{v:.2f} — Strong La Niña 🌧️🌧️🌧️"
 
-conversation_state = {
-    "last_topic": None,
-    "last_year": None,
-    "last_month": None,
-    "lang": "en",
-    "station_mode": False  # Default: Padre Garcia only!
-}
+# conversation_state = {
+#     "last_topic": None,
+#     "last_year": None,
+#     "last_month": None,
+#     "lang": "en",
+#     "station_mode": False  # Default: Padre Garcia only!
+# }
+# --- AFTER ---
+session_memory = {}
+
+def get_session_state(session_id=None):
+    """Retrieve or initialize conversation state for a specific session."""
+    sid = session_id or "default"
+    if sid not in session_memory:
+        session_memory[sid] = {
+            "last_topic": None,
+            "last_year": None,
+            "last_month": None,
+            "lang": "en",
+            "station_mode": False  # Default: Padre Garcia only!
+        }
+    return session_memory[sid]
+
+# Keep this pointer active so functions like L() continue working seamlessly
+conversation_state = get_session_state("default")
 
 # Common Tagalog words/particles that signal the user is speaking Filipino
 TAGALOG_MARKERS = [
@@ -114,7 +132,7 @@ TAGALOG_MARKERS = [
     "paalam", "hanggang", "maraming", "walang", "anuman", "mag-ingat", "ingat",
     # Greeting words
     "magandang", "umaga", "tanghali", "hapon", "gabi", "mabuhay"
-    "gaano", "tagal", "katagal", "kailan"
+    "gaano", "tagal", "katagal", "kailan", "banas", "kabanas", "ulan", "tag-ulan", "tagtuyot", "tuyot", "mainit", "malamig", "malakas", "mahina", "mainit", "malamig", "mabanas", "malilom", "basa", "kanino", "tatawag"
 ]
 
 def detect_language(text):
@@ -2361,7 +2379,7 @@ import difflib
 TYPO_VOCAB = [
     "nino", "nina", "affect", "affects", "rainfall", "rain", "drought",
     "temperature", "prediction", "predict", "forecast", "dehydration",
-    "heatstroke", "exhaustion", "conserve", "health", "agriculture",
+    "heatstroke", "exhaustion", "conserve", "health", "agriculture", "affected"
 ]
 
 def normalize_typos(text):
@@ -2388,12 +2406,74 @@ def is_out_of_scope(text):
         "joke", "biro", "kanta", "song", "movie", "pelikula",
         "bitcoin", "stock", "basketball", "code", "program",
     ])
- 
-def chatbot_event_router(user_input):
+
+
+
+def chatbot_event_router(user_input, session_id=None):
+    global conversation_state
+    conversation_state = get_session_state(session_id)
+
     clean_input = user_input.lower().strip()
     clean_input = clean_input.replace('ñ', 'n').replace('é', 'e').replace('í', 'i')
     clean_input = normalize_typos(clean_input)
 
+    # ---------------------------------------------------------
+    # 1. DEFINE LANGUAGE & STATION SCOPE FIRST (Fixes UnboundLocalError)
+    # ---------------------------------------------------------
+    conversation_state["lang"] = detect_language(clean_input)
+    padre_garcia_only = any(k in clean_input for k in [
+        "padre garcia", "batangas only", "only padre garcia", "local only", "sa padre garcia", "sa batangas"
+    ])
+
+    # ---------------------------------------------------------
+    # 2. PRIORITIZE 4-DIGIT YEAR QUERIES (2010–2026)
+    # ---------------------------------------------------------
+    years_found = re.findall(r'\b(20[0-3]\d)\b', clean_input)
+    if years_found:
+        # Check if 2 years are mentioned (e.g., "compare 2015 and 2020")
+        if len(years_found) >= 2:
+            return handle_year_comparison(years_found[0], years_found[1], padre_garcia_only)
+
+        # Check if a specific month is also mentioned (e.g., "May 2015")
+        for month_str, month_num in MONTH_NAME_TO_INT.items():
+            if re.search(r'\b' + month_str + r'\b', clean_input):
+                return handle_month_year_query(month_num, int(years_found[0]), padre_garcia_only)
+
+        # Single Year inquiry (e.g. "kumusta ang year 2015", "how is 2015", "panahon noong 2015")
+        return handle_year_query(years_found[0], padre_garcia_only, is_rain_specific=True)
+
+    # ---------------------------------------------------------
+    # 3. CHECK AFFIRMATIONS ("Oo", "Yes", "Opo", "Sige")
+    # ---------------------------------------------------------
+    AFFIRMATIVE_WORDS = {"oo", "opo", "oho", "yes", "yeah", "yep", "yup", "sure", "sige", "sige po", "pwede", "ok", "okay"}
+    if clean_input in AFFIRMATIVE_WORDS or clean_input.rstrip('.!') in AFFIRMATIVE_WORDS:
+        if conversation_state.get("lang") == "tl":
+            return (
+                "Sige! Ano ang nais mong malaman? Maaari mong itanong:\n"
+                "• *'Ano ang mga epekto ng El Niño?'*\n"
+                "• *'Paano maghanda sa tagtuyot at kakulangan sa tubig?'*\n"
+                "• *'Kumusta ang ulan noong 2015?'*\n"
+                "• *'Sino ang dapat tawagan sa emergency?'*"
+            )
+        else:
+            return (
+                "Great! What would you like to know? You can ask:\n"
+                "• *'What are the effects of El Niño?'*\n"
+                "• *'How to prepare for water shortages?'*\n"
+                "• *'Compare rainfall in 2015 and 2020'*\n"
+                "• *'Emergency hotlines in Padre Garcia'*"
+            )
+
+    # ---------------------------------------------------------
+    # 4. CHECK NEGATIONS / CLOSINGS ("Hindi", "No", "Wala na")
+    # ---------------------------------------------------------
+    NEGATIVE_WORDS = {"hindi", "hindi na", "hindi po", "di na", "no", "nope", "wala", "wala na", "wala na po", "ayoko", "nothing"}
+    if clean_input in NEGATIVE_WORDS or clean_input.rstrip('.!') in NEGATIVE_WORDS:
+        conversation_state["last_topic"] = "farewell"
+        return L(
+            "Understood! 😊 I'm always here if you need climate updates or emergency tips for Padre Garcia. Stay safe and hydrated! 💧",
+            "Walang anuman! 😊 Nandito lamang ako kung may kailangan ka pang alamin tungkol sa panahon o paghahanda sa Padre Garcia. Mag-ingat palagi at uminom ng tubig! 💧"
+        )    
     # Detect language (Tagalog or English)
     conversation_state["lang"] = detect_language(clean_input)
 
@@ -3057,8 +3137,19 @@ def chatbot_event_router(user_input):
         )
 
     # 1. Greetings
-    words_in_input = clean_input.split()
-    if any(w in ["hi", "hello", "hey", "kamusta", "good day", "kumusta", "musta", "good morning", "good night","afternoon", "tanghali", "hapon"] for w in words_in_input):
+    # 1. Greetings (Strict match so "kumusta ang weather/panahon" isn't hijacked)
+    GREETING_WORDS = {
+        "hi", "hello", "hey", "kamusta", "kumusta", "musta", "mabuhay",
+        "good day", "good morning", "good afternoon", "good evening", "good night"
+    }
+
+    clean_greeting = clean_input.strip(" \t\r\n.,!?")
+
+    # Only respond with a greeting if the user's message is ONLY a greeting (1 to 2 words max)
+    if clean_greeting in GREETING_WORDS or (
+        any(clean_greeting.startswith(g) for g in GREETING_WORDS) 
+        and len(clean_greeting.split()) <= 2
+    ):
         if conversation_state["lang"] == "tl":
             return random.choice([
                 "Kumusta! 👋 Ako si **ReadyKomunidad** — isang chatbot na tumutulong sa mga taga-Padre Garcia, Batangas na maunawaan ang El Niño, ang mga epekto nito, at kung paano maghanda.",
@@ -3070,14 +3161,16 @@ def chatbot_event_router(user_input):
             "Hello! 👋 **ReadyKomunidad** here — your guide to El Niño awareness for Padre Garcia, Batangas. You can ask me about its effects, preparedness tips, and local climate data. \n\nIs there any concern I can help you with?"
         ])
 
-    # Batangueño small talk about hot, humid weather
-    if any(phrase in clean_input for phrase in [
-        "ang banas", "grabe ang banas", "sobrang banas", "banas talaga", "banas", "ang init", "sobrang init", "grabe ang init", "init talaga", "ang init ng panahon", "init ng panahon", "init na panahon", "init na panahon ngayon", "init ngayon", "sobrang init ngayon"
-    ]) or clean_input.strip() == "banas":
+  
+    # Batangueño small talk & heat complaints ("mainit", "banas", etc.)
+    if any(clean_input == word for word in ["mainit", "banas", "napakainit", "sobrang init", "ang init"]) or any(phrase in clean_input for phrase in [
+        "ang banas", "grabe ang banas", "sobrang banas", "banas talaga", "grabe ang init", 
+        "init talaga", "ang init ng panahon", "init ng panahon", "init na panahon", "init ngayon"
+    ]):
         conversation_state["last_topic"] = "heat_comfort"
         return L(
             "Whew, it sounds really hot! 🥵 Take a break somewhere cool or in the shade, drink water regularly, and avoid staying in the sun too long. If you feel dizzy, weak, or nauseated, cool down and ask someone nearby for help.",
-            "Naku, grabe naman ang **banas**! 🥵 Parang nakapaso ang init, ano? Ingat tayo, ha. 💧 Uminom ng tubig nang madalas, tumambay muna sa preskong lugar o lilim, at bawasan ang pagbibilad sa araw. Kung nahihilo, nanghihina, o naduduwal, magpalamig agad at humingi ng tulong."
+            "Naku, grabe naman ang **init** at **banas**! 🥵 Parang nakapaso, ano? Ingat tayo, ha.\n\n💧 Uminom ng tubig nang madalas, tumambay muna sa preskong lugar o lilim, at iwasang magbilad sa araw (10 AM - 3 PM). Kung nahihilo o nanghihina, magpalamig agad at humingi ng tulong."
         )
 
     # 1b. Gratitude / farewells
@@ -4135,7 +4228,16 @@ def chatbot_event_router(user_input):
             )
 
     # CL2-4 & CL2-5. How does El Niño affect agriculture and crops?
-    if any(k in clean_input for k in ["affect agriculture", "affect crops", "affect farming", "affect farmers", "el nino agriculture", "el nino crops", "el nino farming", "epekto sa agrikultura", "epekto sa mga pananim", "epekto sa magsasaka", "pananim", "crop failure", "ani", "palay", "mais", "agriculture", "farming", "nakakaapekto sa pananim"]):
+    # TO THIS:
+    if (
+        any(k in clean_input for k in [
+            "affect agriculture", "affect crops", "affect farming", "affect farmers",
+            "el nino agriculture", "el nino crops", "el nino farming", "epekto sa agrikultura",
+            "epekto sa mga pananim", "epekto sa magsasaka", "pananim", "crop failure",
+            "palay", "mais", "agriculture", "farming", "nakakaapekto sa pananim"
+        ])
+        or re.search(r'\bani\b', clean_input) # <-- only matches the standalone word "ani", not "k-ani-no"!
+    ):
         conversation_state["last_topic"] = "el_nino_agriculture"
         return L(
             "🌾 **How Does El Niño Affect Agriculture and Crops?**\n\n"
@@ -5314,7 +5416,7 @@ def chatbot_event_router(user_input):
     # Detect if user specifically asked about rain/weather
     is_rain_inquiry = any(k in clean_input for k in [
         "rain", "rainfall", "ulan", "pag-ulan", "weather", "panahon", 
-        "what happened", "nangyari", "show me", "record", "summary"
+        "what happened", "nangyari", "show me", "record", "summary", "kamusta", "kumusta"
     ])
 
     if len(years_found) == 1:
@@ -5939,11 +6041,11 @@ def chatbot_event_router(user_input):
 
     # CL4-8. Who should I contact during an emergency related to El Niño?
     if any(k in clean_input for k in [
-        "contact during emergency", "who to contact emergency", "contact during el nino emergency", "contact during an el nino emergency",
-        "who should i call", "emergency contact el nino", "sino ang tatawagin",
-        "contact for emergency", "emergency number el nino", "who to call emergency",
-        "contact in case of emergency", "help during emergency", "emergency el nino contact",
-        "who should i contact during", "sino ang dapat tawagan",
+        "call for help", "ask for help", "need help", "who to call", "who should i call",
+        "who to contact", "who should i contact", "emergency contact", "emergency number",
+        "emergency hotline", "kanino tatawag", "sino tatawagin", "sino ang tatawagin",
+        "sino ang dapat tawagan", "saan tatawag", "tawagan sa emergency", "hotline",
+        "saklolo", "tulong emergency", "humingi ng tulong sa emergency","kanino ba dapat tatawag","kanino ga dapat tatawag", "kanino ba dapat tumawag", "kanino ga dapat tumawag"
     ]):
 
         conversation_state["last_topic"] = "emergency_contacts"
@@ -6154,8 +6256,38 @@ def chatbot_event_router(user_input):
             "• Makipag-ugnayan sa **MDRRMO** sa (043) 515-7424 para sa emergency coordination\n"
             "• Suriin ang **Municipal Facebook page** para sa mga service announcements"
         )
+    # Who will be affected by El Niño
+    # Who will be affected by El Niño / Vulnerable groups
+    if any(k in clean_input for k in [
+        "who will be affected", "who is affected", "who are affected",
+        "who will be affect", "who is affect", "who are affect",
+        "who is most affected", "who is most vulnerable", "most vulnerable",
+        "sino ang maaapektuhan", "sino maapektuhan", "sino ang apektado",
+        "sinong maapektuhan", "sinong apektado", "mga maapektuhan", "mga apektado"
+    ]) or (
+        any(w in clean_input for w in ["who", "sino", "sinong"]) 
+        and any(w in clean_input for w in ["affect", "affected", "apektado", "maaapektuhan", "vulnerable"])
+    ):
+        conversation_state["last_topic"] = "el_nino_vulnerable"
+        return L(
+            "👥 **Who Will Be Most Affected by El Niño in Padre Garcia?**\n\n"
+            "While the entire community experiences the heat and dry conditions, the following groups face the highest risks:\n\n"
+            "1. 🌾 **Farmers & Agricultural Workers** — Rain-fed crops (rice and corn) wilt, irrigation dries up, and crop yields drop significantly.\n"
+            "2. 🐄 **Livestock Raisers & Cattle Traders** — As the Cattle Trading Capital of the Philippines, heat stress and lack of drinking water severely threaten livestock health and market trade.\n"
+            "3. 👵 **Elderly Citizens & Young Children** — Highly vulnerable to heat exhaustion, heatstroke, and dehydration during high heat index days.\n"
+            "4. 🔨 **Outdoor Workers** — Construction laborers, tricycle drivers, and vendors exposed to peak sun hours (10:00 AM – 3:00 PM).\n"
+            "5. 🚰 **Households Relying on Shallow Wells** — Groundwater levels recede during prolonged dry spells, leading to water shortages.\n\n"
+            "💡 *Tip: Check on elderly neighbors and ensure outdoor animals have shade and continuous drinking water.*",
 
-    # Drought definition — must be before section 9 so "drought" alone doesn't hit el nino handler
+            "👥 **Sino ang Pinaka-Maaapektuhan ng El Niño sa Padre Garcia?**\n\n"
+            "Bagama't ramdam ng buong bayan ang init at kakulangan sa ulan, ang mga sumusunod ang higit na nanganganib:\n\n"
+            "1. 🌾 **Mga Magsasaka** — Nanganganib matuyo ang palay at mais, at maubusan ng tubig ang mga irigasyon.\n"
+            "2. 🐄 **Mga Nag-aalaga ng Baka at Hayop** — Bilang Kabisera ng Bakahan, banta ang matinding init (heat stress) at dehydration sa kalusugan ng mga baka at baboy.\n"
+            "3. 👵 **Mga Bata at Matatanda** — Mas mabilis ma-dehydrate at mas mataas ang banta ng heatstroke at altapresyon.\n"
+            "4. 🔨 **Mga Manggagawang Nasa Labas** — Construction workers, tricycle drivers, at magtitinda na nakabilad sa sikat ng araw.\n"
+            "5. 🚰 **Mga Umaasa sa Poso't Balon** — Bumubaba ang lebel ng tubig sa ilalim ng lupa kaya mabilis matuyuan ng tubig ang mga poso.\n\n"
+            "💡 *Paalala: Ugaliing uminom ng tubig, magbigay ng lilim sa mga alagang hayop, at kumustahin ang mga nakatatandang kapamilya.*"
+        )    # Drought definition — must be before section 9 so "drought" alone doesn't hit el nino handler
     if any(k in clean_input for k in ["what is drought", "define drought", "ano ang drought", "meaning of drought", "drought definition", "what does drought mean", "drought mean", "tagtuyot ano", "ano ang tagtuyot"]):
         conversation_state["last_topic"] = "drought_definition"
         return L(
@@ -6447,7 +6579,7 @@ def chat():
         })
 
     # 1. Generate normal chatbot reply
-    reply = chatbot_event_router(message)
+    reply = chatbot_event_router(message, session_id=session_id)
 
     # 2. Mirror user's emojis
     is_tl = conversation_state.get('lang') == 'tl'
@@ -6766,6 +6898,15 @@ def admin_login():
 @admin_required
 def admin_bootstrap():
     user = _current_admin()
+    settings = db.get_admin_settings()
+    
+    # Live automatic server health check
+    system_health = {
+        "model_loaded": rain_model is not None,
+        "dataset_rows": len(master_df) if master_df is not None else 0,
+        "database_connected": True
+    }
+
     return jsonify({
         "user": {
             "id": user["id"],
@@ -6775,9 +6916,86 @@ def admin_bootstrap():
         },
         "csrf_token": _admin_csrf_token(),
         "dashboard": db.get_admin_dashboard(),
-        "settings": db.get_admin_settings(),
+        "settings": settings,
+        "system_health": system_health,
     })
 
+
+@app.route("/admin/api/settings", methods=["GET", "PUT"])
+@admin_required
+@csrf_protected
+def admin_settings():
+    actor = _current_admin()
+    if request.method == "GET":
+        return jsonify({
+            "profile": {
+                "full_name": actor["full_name"],
+                "email": actor["email"],
+            },
+            "preferences": db.get_admin_settings(),
+        })
+
+    data, error_response = _json_object()
+    if error_response:
+        return error_response
+
+    updates = {}
+    
+    # 1. Profile fields (Optional so toggling doesn't require resending full profile)
+    if "full_name" in data:
+        full_name, error = _required_text(data, "full_name", "Full name", 100)
+        if error:
+            return jsonify({"error": error}), 400
+        updates["full_name"] = full_name
+
+    if "email" in data:
+        email, error = _required_text(data, "email", "Email", 254)
+        if error or not _valid_email(email):
+            return jsonify({"error": error or "Enter a valid email address."}), 400
+        updates["email"] = email
+
+    # 2. Password change (Optional and verified only when requested)
+    new_password = data.get("new_password", "")
+    if new_password:
+        if not isinstance(new_password, str) or len(new_password) < 12:
+            return jsonify({"error": "New password must be at least 12 characters."}), 400
+        current_password = data.get("current_password", "")
+        if not current_password or not check_password_hash(actor["password_hash"], current_password):
+            return jsonify({"error": "Current password is incorrect."}), 400
+        updates["password_hash"] = generate_password_hash(new_password)
+
+    # 3. Preferences & Live Toggles
+    saved_preferences = None
+    if "preferences" in data and isinstance(data["preferences"], dict):
+        preferences = data["preferences"]
+        valid_preferences = {}
+        for key in ("notifications_enabled", "chatbot_available", "maintenance_mode"):
+            if key in preferences and isinstance(preferences[key], bool):
+                valid_preferences[key] = preferences[key]
+        if valid_preferences:
+            saved_preferences = db.update_admin_settings(valid_preferences)
+
+    # Apply user table updates if any
+    if updates:
+        try:
+            update_result = db.update_admin_user(actor["id"], updates)
+        except sqlite3.IntegrityError:
+            return jsonify({"error": "An account with that email already exists."}), 409
+        if update_result == "missing":
+            session.clear()
+            return jsonify({"error": "Administrator account not found."}), 401
+
+    if not saved_preferences:
+        saved_preferences = db.get_admin_settings()
+
+    db.log_admin_activity(actor["full_name"], "Updated", "settings")
+    return jsonify({
+        "profile": {
+            "full_name": updates.get("full_name", actor["full_name"]),
+            "email": updates.get("email", actor["email"])
+        },
+        "preferences": saved_preferences,
+    })
 
 @app.route("/admin/api/logout", methods=["POST"])
 @admin_required
@@ -7036,64 +7254,64 @@ def admin_user_item(user_id):
     return jsonify({"ok": True})
 
 
-@app.route("/admin/api/settings", methods=["GET", "PUT"])
-@admin_required
-@csrf_protected
-def admin_settings():
-    actor = _current_admin()
-    if request.method == "GET":
-        return jsonify({
-            "profile": {
-                "full_name": actor["full_name"],
-                "email": actor["email"],
-            },
-            "preferences": db.get_admin_settings(),
-        })
-    data, error_response = _json_object()
-    if error_response:
-        return error_response
-    full_name, error = _required_text(data, "full_name", "Full name", 100)
-    if error:
-        return jsonify({"error": error}), 400
-    email, error = _required_text(data, "email", "Email", 254)
-    if error or not _valid_email(email):
-        return jsonify({"error": error or "Enter a valid email address."}), 400
-    new_password = data.get("new_password", "")
-    if new_password:
-        if not isinstance(new_password, str) or len(new_password) < 12:
-            return jsonify({"error": "New password must be at least 12 characters."}), 400
-        if not check_password_hash(
-            actor["password_hash"], data.get("current_password", "")
-        ):
-            return jsonify({"error": "Current password is incorrect."}), 400
+# @app.route("/admin/api/settings", methods=["GET", "PUT"])
+# @admin_required
+# @csrf_protected
+# def admin_settings():
+#     actor = _current_admin()
+#     if request.method == "GET":
+#         return jsonify({
+#             "profile": {
+#                 "full_name": actor["full_name"],
+#                 "email": actor["email"],
+#             },
+#             "preferences": db.get_admin_settings(),
+#         })
+#     data, error_response = _json_object()
+#     if error_response:
+#         return error_response
+#     full_name, error = _required_text(data, "full_name", "Full name", 100)
+#     if error:
+#         return jsonify({"error": error}), 400
+#     email, error = _required_text(data, "email", "Email", 254)
+#     if error or not _valid_email(email):
+#         return jsonify({"error": error or "Enter a valid email address."}), 400
+#     new_password = data.get("new_password", "")
+#     if new_password:
+#         if not isinstance(new_password, str) or len(new_password) < 12:
+#             return jsonify({"error": "New password must be at least 12 characters."}), 400
+#         if not check_password_hash(
+#             actor["password_hash"], data.get("current_password", "")
+#         ):
+#             return jsonify({"error": "Current password is incorrect."}), 400
 
-    preferences = data.get("preferences", {})
-    if not isinstance(preferences, dict):
-        return jsonify({"error": "Preferences must be an object."}), 400
-    valid_preferences = {}
-    for key in ("notifications_enabled", "chatbot_available", "maintenance_mode"):
-        if key in preferences:
-            if not isinstance(preferences[key], bool):
-                return jsonify({"error": f"{key} must be true or false."}), 400
-            valid_preferences[key] = preferences[key]
+#     preferences = data.get("preferences", {})
+#     if not isinstance(preferences, dict):
+#         return jsonify({"error": "Preferences must be an object."}), 400
+#     valid_preferences = {}
+#     for key in ("notifications_enabled", "chatbot_available", "maintenance_mode"):
+#         if key in preferences:
+#             if not isinstance(preferences[key], bool):
+#                 return jsonify({"error": f"{key} must be true or false."}), 400
+#             valid_preferences[key] = preferences[key]
 
-    updates = {"full_name": full_name, "email": email}
-    if new_password:
-        updates["password_hash"] = generate_password_hash(new_password)
-    try:
-        update_result = db.update_admin_user(actor["id"], updates)
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "An account with that email already exists."}), 409
-    if update_result == "missing":
-        session.clear()
-        return jsonify({"error": "Administrator account not found."}), 401
+#     updates = {"full_name": full_name, "email": email}
+#     if new_password:
+#         updates["password_hash"] = generate_password_hash(new_password)
+#     try:
+#         update_result = db.update_admin_user(actor["id"], updates)
+#     except sqlite3.IntegrityError:
+#         return jsonify({"error": "An account with that email already exists."}), 409
+#     if update_result == "missing":
+#         session.clear()
+#         return jsonify({"error": "Administrator account not found."}), 401
 
-    saved_preferences = db.update_admin_settings(valid_preferences)
-    db.log_admin_activity(full_name, "Updated", "settings")
-    return jsonify({
-        "profile": {"full_name": full_name, "email": email},
-        "preferences": saved_preferences,
-    })
+#     saved_preferences = db.update_admin_settings(valid_preferences)
+#     db.log_admin_activity(full_name, "Updated", "settings")
+#     return jsonify({
+#         "profile": {"full_name": full_name, "email": email},
+#         "preferences": saved_preferences,
+#     })
 
 
 if __name__ == '__main__':

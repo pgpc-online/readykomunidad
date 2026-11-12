@@ -63,7 +63,6 @@
         .animate-dot-2 { animation: dotBounce 1.1s infinite ease-in-out 0.2s; }
         .animate-dot-3 { animation: dotBounce 1.1s infinite ease-in-out 0.4s; }
 
-        /* Subtle shimmering gradient for the thinking status */
         @keyframes shimmerText {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
@@ -97,11 +96,24 @@
             transition: transform 0.2s ease, opacity 0.2s ease;
         }
         .chat-img-thumb:hover { transform: scale(1.015); opacity: 0.95; }
+
         /* Rainfall Bar Chart Tooltips */
-.bar-group:hover .bar-tooltip {
-    opacity: 1;
-    transform: translateY(-4px);
-}
+        .bar-group:hover .bar-tooltip {
+            opacity: 1;
+            transform: translateY(-4px);
+        }
+
+        /* Line clamp utility */
+        .line-clamp-content {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .line-clamp-content.expanded {
+            display: block;
+            -webkit-line-clamp: unset;
+        }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-[#0c111d] text-slate-800 dark:text-slate-100 h-full flex flex-col font-sans transition-colors duration-200 antialiased overflow-hidden">
@@ -110,7 +122,7 @@
     <header class="w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c111d]/70 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between shrink-0 z-20">
         <button id="community-sidebar-trigger" type="button" onclick="openCommunitySidebar()"
             aria-label="Open ReadyKomunidad community menu" aria-controls="community-sidebar" aria-expanded="false"
-            class="flex items-center space-x-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+            class="flex items-center space-x-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 hover:opacity-90 transition group">
             <!-- Sun Logo Icon -->
             <div class="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-sm shadow-brand-500/25">
                 <i class="fa-solid fa-sun text-base animate-spin" style="animation-duration: 25s;"></i>
@@ -121,9 +133,19 @@
                     <span class="text-[10px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200/60 dark:border-brand-800/50">AI</span>
                 </div>
             </div>
+            <div class="hidden sm:flex items-center text-xs text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 ml-1 transition">
+                <i class="fa-solid fa-angle-right text-[11px]"></i>
+            </div>
         </button>
 
         <div class="flex items-center space-x-2">
+            <!-- Community Bulletins Button Shortcut -->
+            <button onclick="openCommunitySidebar('announcements')" class="px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-800 transition text-xs font-medium flex items-center gap-2 shadow-2xs">
+                <i class="fa-solid fa-bullhorn text-amber-500 text-xs"></i>
+                <span class="hidden sm:inline">Bulletins</span>
+                <span id="header-bulletin-badge" class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+            </button>
+
             <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-xl transition-colors text-xs flex items-center gap-1.5" title="Toggle Dark/Light Mode">
                 <i id="theme-icon" class="fa-solid fa-moon"></i>
             </button>
@@ -134,69 +156,139 @@
         </div>
     </header>
 
+    <!-- ======================================================== -->
+    <!-- MODERNIZED USER-SIDE DRAWER / SIDEBAR                    -->
+    <!-- ======================================================== -->
     <div id="community-sidebar-backdrop" aria-hidden="true"
         onclick="closeCommunitySidebar()"
-        class="fixed inset-0 z-40 bg-slate-950/50 opacity-0 pointer-events-none transition-opacity duration-200"></div>
+        class="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
     <aside id="community-sidebar" role="dialog" aria-modal="true"
-        aria-label="ReadyKomunidad community menu" aria-hidden="true" inert
-        class="fixed inset-y-0 left-0 z-50 flex w-[min(90vw,390px)] -translate-x-full flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101827] shadow-2xl transition-transform duration-300">
-        <div class="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-5">
-            <div>
-                <h2 class="text-base font-semibold text-slate-900 dark:text-white">ReadyKomunidad</h2>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Community updates and feedback</p>
+        aria-label="ReadyKomunidad Community Panel" aria-hidden="true" inert
+        class="fixed inset-y-0 left-0 z-50 flex w-full sm:w-[420px] -translate-x-full flex-col border-r border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#101827] shadow-2xl transition-transform duration-300 ease-out select-none">
+        
+        <!-- Drawer Header -->
+        <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/40">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-xs">
+                    <i class="fa-solid fa-shield-halved text-sm"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-slate-900 dark:text-white leading-tight">Padre Garcia Community Hub</h2>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Official Advisories & Citizen Voice</p>
+                </div>
             </div>
-            <button type="button" onclick="closeCommunitySidebar()" aria-label="Close community menu"
-                class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <i class="fa-solid fa-xmark"></i>
+            <button type="button" onclick="closeCommunitySidebar()" aria-label="Close panel"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
             </button>
         </div>
-        <div class="flex-1 space-y-7 overflow-y-auto px-5 py-5">
-            <section aria-labelledby="community-announcements-title">
-                <h3 id="community-announcements-title"
-                    class="text-sm font-semibold text-slate-900 dark:text-white">Announcements</h3>
-                <div id="community-announcements" class="mt-3 space-y-3" role="status" aria-live="polite">
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Open the menu to check the latest announcements.</p>
+
+        <!-- Segmented Tab Navigation -->
+        <div class="p-3 border-b border-slate-100 dark:border-slate-800/70 bg-white dark:bg-[#101827] shrink-0">
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <button type="button" id="tab-btn-announcements" onclick="switchSidebarTab('announcements')"
+                    class="py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs">
+                    <i class="fa-solid fa-bullhorn text-amber-500 text-xs"></i>
+                    <span>Bulletins</span>
+                    <span id="announcement-count-pill" class="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold ml-0.5">0</span>
+                </button>
+                <button type="button" id="tab-btn-feedback" onclick="switchSidebarTab('feedback')"
+                    class="py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all hover:text-slate-900 dark:hover:text-white">
+                    <i class="fa-regular fa-comment-dots text-brand-500 text-xs"></i>
+                    <span>Send Feedback</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Tab Content Body -->
+        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            
+            <!-- SECTION 1: ANNOUNCEMENTS & ADVISORIES -->
+            <section id="sidebar-tab-announcements" class="space-y-3">
+                <!-- Search & Filter Bar (Handles multiple announcements smoothly) -->
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="announcement-search" oninput="filterAnnouncementsList()"
+                        placeholder="Search bulletins by keyword..."
+                        class="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 transition">
+                </div>
+
+                <!-- Announcements Feed Container -->
+                <div id="community-announcements" class="space-y-3" role="status" aria-live="polite">
+                    <!-- Populated dynamically via JS -->
                 </div>
             </section>
-            <section aria-labelledby="community-feedback-title">
-                <h3 id="community-feedback-title"
-                    class="text-sm font-semibold text-slate-900 dark:text-white">Send feedback</h3>
-                <p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                    Send a suggestion or report a bug anonymously. No account or name is needed.
-                </p>
-                <form id="community-feedback-form" onsubmit="submitCommunityFeedback(event)" class="mt-3 space-y-3">
-                    <label class="sr-only" for="feedback-type">Message type</label>
-                    <select id="feedback-type" name="feedback_type"
-                        class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
-                        <option value="Feedback">Send feedback</option>
-                        <option value="Bug report">Report a bug</option>
-                    </select>
-                    <label class="sr-only" for="feedback-message">Your message</label>
-                    <textarea id="feedback-message" name="message" required maxlength="2000" rows="4"
-                        placeholder="How can we improve?"
-                        class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400"></textarea>
-                    <div class="flex items-center justify-between gap-3">
-                        <span id="feedback-status" class="text-xs text-slate-500 dark:text-slate-400"
-                            role="status" aria-live="polite"></span>
-                        <button type="submit"
-                            class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-brand-500 dark:hover:text-white">
-                            Send anonymously
+
+            <!-- SECTION 2: RESIDENT FEEDBACK -->
+            <section id="sidebar-tab-feedback" class="hidden space-y-4">
+                <div class="p-3.5 rounded-2xl bg-brand-50/70 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-900/50 text-xs leading-relaxed text-brand-900 dark:text-brand-300 flex items-start gap-2.5">
+                    <i class="fa-solid fa-user-shield text-brand-600 dark:text-brand-400 text-sm mt-0.5 shrink-0"></i>
+                    <div>
+                        <strong class="font-semibold block">100% Anonymous & Direct</strong>
+                        Your feedback or bug report helps improve early climate warnings for Padre Garcia residents. No login or identity is required.
+                    </div>
+                </div>
+
+                <form id="community-feedback-form" onsubmit="submitCommunityFeedback(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Feedback Category</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="feedback_type" value="Suggestion" checked class="peer sr-only">
+                                <div class="py-2 px-3 text-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 font-medium text-slate-700 dark:text-slate-300 peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-950/60 peer-checked:text-brand-700 dark:peer-checked:text-brand-300 transition">
+                                    💡 Suggestion
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="feedback_type" value="Bug Report" class="peer sr-only">
+                                <div class="py-2 px-3 text-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 font-medium text-slate-700 dark:text-slate-300 peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:peer-checked:bg-brand-950/60 peer-checked:text-brand-700 dark:peer-checked:text-brand-300 transition">
+                                    🐞 Report Bug
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="feedback-message" class="font-semibold text-slate-700 dark:text-slate-300">Your Message</label>
+                            <span id="feedback-char-count" class="text-[11px] text-slate-400">0 / 2000</span>
+                        </div>
+                        <textarea id="feedback-message" name="message" required maxlength="2000" rows="5"
+                            oninput="updateCharCount(this)"
+                            placeholder="Share what works well, report incorrect data, or suggest community preparedness features..."
+                            class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-950 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 outline-none transition"></textarea>
+                    </div>
+
+                    <div class="pt-1 flex flex-col gap-2">
+                        <button type="submit" id="feedback-submit-btn"
+                            class="w-full py-2.5 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-brand-600 dark:hover:bg-brand-500 dark:hover:text-white font-semibold transition flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-regular fa-paper-plane text-xs"></i>
+                            <span>Submit Anonymously</span>
                         </button>
+                        <span id="feedback-status" class="text-[11px] text-center text-slate-500 dark:text-slate-400 min-h-[1.2rem]" role="status" aria-live="polite"></span>
                     </div>
                 </form>
             </section>
         </div>
-        <footer class="border-t border-slate-200 dark:border-slate-800 px-5 py-4 text-xs text-slate-500 dark:text-slate-400">
-            ReadyKomunidad v1.0
+
+        <!-- Drawer Quick Emergency Contacts Footer -->
+        <footer class="border-t border-slate-100 dark:border-slate-800/80 px-5 py-3.5 bg-slate-50/70 dark:bg-slate-900/60 shrink-0 text-xs">
+            <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span class="flex items-center gap-1.5 font-medium">
+                    <i class="fa-solid fa-phone-flip text-rose-500 text-[11px]"></i>
+                    <span>MDRRMO: (043) 515-7424</span>
+                </span>
+                <span class="text-[11px] text-slate-400">ReadyKomunidad v1.0</span>
+            </div>
         </footer>
     </aside>
 
     <!-- Main Chat Workspace -->
     <main class="flex-1 max-w-3xl w-full mx-auto flex flex-col overflow-hidden px-3 sm:px-6 pt-2 pb-3">
-        
         <!-- Messages Area / Welcome Screen -->
         <div id="chat-messages" class="flex-1 overflow-y-auto px-1 sm:px-2 py-4 space-y-6">
-            <!-- Dynamically populated by JS (either Welcome Hero or Chat Messages) -->
+            <!-- Dynamically populated by JS -->
         </div>
 
         <!-- Floating Scroll-To-Bottom Button -->
@@ -221,7 +313,6 @@
                 </button>
             </form>
 
-            <!-- Bottom Disclaimer -->
             <p class="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2.5 px-4 leading-normal">
                 ReadyKomunidad can make mistakes. Please verify official weather advisories and emergency directives with PAGASA or local authorities.
             </p>
@@ -233,603 +324,362 @@
         <span class="absolute top-5 right-6 text-white text-2xl font-light cursor-pointer hover:opacity-75 transition-opacity" onclick="closeLightbox(event)">&times;</span>
         <img id="lightbox-img" src="" alt="Full preview">
     </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.3.1/purify.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.3.1/purify.min.js"></script>
     <script>
-        
-// ==========================================
-// READYKOMUNIDAD - MAIN CHATBOT SCRIPT
-// ==========================================
-
-// Store conversation messages
-let messages = [];
-
-// Session management
-let sessionId = localStorage.getItem('rk_session_id') || '';
-
-function newSessionId() {
-    sessionId = (crypto && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : 'sess-' + Date.now();
-
-    localStorage.setItem('rk_session_id', sessionId);
-}
-
-if (!sessionId) newSessionId();
-
-// DOM elements
-const chatMessagesEl = document.getElementById('chat-messages');
-const userInputEl = document.getElementById('user-input');
-const chatFormEl = document.getElementById('chat-form');
-const scrollBottomBtn = document.getElementById('scroll-to-bottom-btn');
-
-
-// ==========================================
-// SECURITY: ESCAPE UNTRUSTED TEXT
-// ==========================================
-
-function escapeHTML(text) {
-    const div = document.createElement('div');
-    div.textContent = String(text ?? '');
-    return div.innerHTML;
-}
-
-
-// ==========================================
-// INITIALIZE CHAT
-// ==========================================
-
-window.onload = async function () {
-    try {
-        const res = await fetch(
-            '/api/history?session_id=' + encodeURIComponent(sessionId)
-        );
-
-        const data = await res.json();
-
-        if (data.messages && Array.isArray(data.messages)) {
-            messages = data.messages;
-        }
-    } catch (error) {
-        console.error('History loading failed:', error);
-        messages = [];
-    }
-
-    renderMessages();
-};
-
-
-// ==========================================
-// TIME
-// ==========================================
-
-function getCurrentTime() {
-    return new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-
-// ==========================================
-// MARKDOWN FORMATTER + HTML SANITIZER
-// ==========================================
-
-function sanitizeChatHtml(html) {
-    return DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: [
-            'div', 'span', 'p', 'br',
-            'strong', 'em', 'b', 'i',
-            'h1', 'h2', 'h3', 'h4',
-            'ul', 'ol', 'li',
-            'a', 'img', 'code', 'pre',
-            'table', 'thead', 'tbody', 'tr', 'th', 'td',
-            'button',
-            'svg', 'path', 'rect', 'line',
-            'circle', 'polyline', 'polygon',
-            'g', 'text', 'tspan'
-        ],
-        ALLOWED_ATTR: [
-            'class', 'src', 'alt', 'title',
-            'href', 'target', 'rel',
-            'width', 'height', 'viewBox',
-            'd', 'fill', 'stroke', 'stroke-width',
-            'x', 'y', 'x1', 'x2', 'y1', 'y2',
-            'cx', 'cy', 'r', 'rx', 'ry',
-            'points', 'transform', 'colspan', 'rowspan',
-            'data-prompt'
-        ]
-    });
-}
-
-function formatMarkdown(text) {
-    if (!text) return '';
-
-    let result = String(text);
-
-    // Convert only trusted suggested-question actions into
-    // data attributes. Never execute backend-provided onclick.
-    result = result.replace(
-        /onclick\s*=\s*(["'])sendQuickPrompt\((['"])(.*?)\2\)\1/gi,
-        (match, outerQuote, innerQuote, prompt) => {
-            return `data-prompt="${escapeHTML(prompt)}"`;
-        }
-    );
-
-    if (result.includes('<!-- RAINFALL_CARD -->')) {
-        return sanitizeChatHtml(result);
-    }
-
-    // Markdown formatting
-    result = result
-        .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*(.*?)\*\*/g,
-            '<strong class="font-semibold text-slate-900 dark:text-white">$1</strong>')
-        .replace(/\*(.*?)\*/g,
-            '<em class="italic text-slate-600 dark:text-slate-300">$1</em>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>');
-
-    // Process Markdown images
-    const lines = result.split('\n');
-    const processed = [];
-    let imgBuffer = [];
-
-    function flushImages() {
-        if (!imgBuffer.length) return;
-
-        processed.push(`
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2.5">
-                ${imgBuffer.join('')}
-            </div>
-        `);
-
-        imgBuffer = [];
-    }
-
-    lines.forEach(line => {
-        const imgMatch = line.match(
-            /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/
-        );
-
-        if (imgMatch) {
-            imgBuffer.push(`
-                <img
-                    src="${escapeHTML(imgMatch[2])}"
-                    alt="${escapeHTML(imgMatch[1])}"
-                    class="chat-img-thumb w-full h-36 object-cover rounded-xl border border-slate-200/80 dark:border-slate-800"
-                >
-            `);
-        } else {
-            flushImages();
-
-            if (/^### /.test(line)) {
-                processed.push(`<h3>${line.slice(4)}</h3>`);
-            } else if (/^## /.test(line)) {
-                processed.push(`<h2>${line.slice(3)}</h2>`);
-            } else if (/^# /.test(line)) {
-                processed.push(`<h1>${line.slice(2)}</h1>`);
-            } else if (/^- /.test(line)) {
-                processed.push(`<div>• ${line.slice(2)}</div>`);
-            } else {
-                processed.push(line);
-            }
-        }
-    });
-
-    flushImages();
-
-    const html = processed.join('<br>');
-
-    // Sanitize all chatbot-generated HTML.
-    // Safe formatting is preserved; executable HTML/JavaScript is removed.
-    return sanitizeChatHtml(html);
-}
-
-
-// ==========================================
-// RENDER MESSAGES
-// ==========================================
-
-function renderMessages() {
-    chatMessagesEl.innerHTML = '';
-
-    if (messages.length === 0) {
-        renderWelcomeScreen();
-        return;
-    }
-
-    messages.forEach(msg => {
-        const isBot = msg.sender === 'bot';
-
-        const messageWrapper = document.createElement('div');
-
-        messageWrapper.className =
-            `flex flex-col animate-fade-in ${isBot ? 'items-start' : 'items-end'}`;
-
-        const bubbleStyle = isBot
-            ? 'bg-transparent text-slate-800 dark:text-slate-100 max-w-full sm:max-w-[92%]'
-            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%] sm:max-w-[75%] border border-slate-200/60 dark:border-slate-700/50 shadow-2xs';
-
-        const botHeader = isBot ? `
-            <div class="flex items-center gap-2 mb-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
-                <i class="fa-solid fa-sun text-[11px] text-amber-500"></i>
-                <span>ReadyKomunidad</span>
-                <span>•</span>
-                <span>${escapeHTML(msg.time || '')}</span>
-
-                <button type="button"
-                    class="copy-message-btn hover:text-brand-500 transition-colors ml-1 p-0.5"
-                    title="Copy response">
-                    <i class="fa-regular fa-copy text-[11px]"></i>
-                </button>
-            </div>
-        ` : '';
-
-        messageWrapper.innerHTML = `
-            ${botHeader}
-
-            <div class="message-bubble ${bubbleStyle} text-sm leading-relaxed">
-                ${isBot
-                    ? formatMarkdown(msg.text)
-                    : escapeHTML(msg.text).replace(/\n/g, '<br>')
-                }
-            </div>
-
-            ${!isBot
-                ? `<div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 mr-1">${escapeHTML(msg.time || '')}</div>`
-                : ''
-            }
-        `;
-
-        if (isBot) {
-            const copyBtn =
-                messageWrapper.querySelector('.copy-message-btn');
-
-            const bubble =
-                messageWrapper.querySelector('.message-bubble');
-
-            // Copy visible chatbot text
-            copyBtn.addEventListener('click', () => {
-                copyMessage(copyBtn, bubble);
-            });
-
-            // Image preview
-            bubble.querySelectorAll('.chat-img-thumb').forEach(img => {
-                img.addEventListener('click', () => {
-                    openLightbox(img.src);
-                });
-
-                img.addEventListener('error', () => {
-                    img.style.display = 'none';
-                });
-            });
-
-            // Suggested buttons generated by trusted frontend HTML
-            bubble.querySelectorAll('button[data-prompt]').forEach(button => {
-                button.addEventListener('click', () => {
-                    sendQuickPrompt(button.dataset.prompt);
-                });
-            });
-        }
-
-        chatMessagesEl.appendChild(messageWrapper);
-    });
-
-    scrollToBottom();
-}
-
-
-// ==========================================
-// WELCOME SCREEN
-// ==========================================
-
-function renderWelcomeScreen() {
-    const welcomeDiv = document.createElement('div');
-
-    welcomeDiv.className =
-        'h-full flex flex-col justify-center items-center text-center max-w-xl mx-auto px-2 py-6 animate-fade-in select-none';
-
-    welcomeDiv.innerHTML = `
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/25 mb-5">
-            <i class="fa-solid fa-sun text-2xl animate-spin" style="animation-duration: 25s;"></i>
-        </div>
-
-        <h2 class="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mb-2.5">
-            Hello! How can I help you today?
-        </h2>
-
-        <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 max-w-md">
-            Ask about El Niño, local preparedness, rainfall information, and community assistance in Padre Garcia, Batangas.
-        </p>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
-
-            <button onclick="sendQuickPrompt('What is El Niño?')"
-                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                <span class="text-base text-amber-500 mt-0.5"><i class="fa-solid fa-sun"></i></span>
-                <div>
-                    <span class="font-medium block mb-0.5">What is El Niño?</span>
-                    <span class="text-slate-400 text-[11px] block">Understand causes, mechanics & local risks</span>
-                </div>
-            </button>
-
-            <button onclick="sendQuickPrompt('What should I do during El Niño?')"
-                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                <span class="text-base text-sky-500 mt-0.5"><i class="fa-solid fa-faucet-drip"></i></span>
-                <div>
-                    <span class="font-medium block mb-0.5">Preparedness</span>
-                    <span class="text-slate-400 text-[11px] block">Action tips for households & farmers</span>
-                </div>
-            </button>
-
-            <button onclick="sendQuickPrompt('Predict rainfall for May')"
-                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                <span class="text-base text-emerald-500 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-                <div>
-                    <span class="font-medium block mb-0.5">Predict Rainfall for May</span>
-                    <span class="text-slate-400 text-[11px] block">AI forecasting for Padre Garcia</span>
-                </div>
-            </button>
-
-            <button onclick="sendQuickPrompt('Who to contact during an El Niño emergency?')"
-                class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
-                <span class="text-base text-rose-500 mt-0.5"><i class="fa-solid fa-phone-volume"></i></span>
-                <div>
-                    <span class="font-medium block mb-0.5">Emergency & LGU Contacts</span>
-                    <span class="text-slate-400 text-[11px] block">MDRRMO, RHU & emergency hotlines</span>
-                </div>
-            </button>
-
-        </div>
-    `;
-
-    chatMessagesEl.appendChild(welcomeDiv);
-}
-
-
-// ==========================================
-// SEND MESSAGE
-// ==========================================
-
-async function handleUserSubmit(e) {
-    if (e) e.preventDefault();
-
-    const text = userInputEl.value.trim();
-    if (!text) return;
-
-    messages.push({
-        sender: 'user',
-        text: text,
-        time: getCurrentTime()
-    });
-
-    userInputEl.value = '';
-    renderMessages();
-
-    const typingDiv = document.createElement('div');
-
-    typingDiv.id = 'typing-indicator';
-    typingDiv.className = 'flex items-start gap-3 animate-fade-in my-2';
-
-    typingDiv.innerHTML = `
-        <div class="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white text-xs shadow-md shrink-0 mt-0.5">
-            <i class="fa-solid fa-sun text-sm animate-spin" style="animation-duration: 20s;"></i>
-        </div>
-
-        <div class="bg-white dark:bg-slate-900 border border-brand-200/80 dark:border-brand-900/60 rounded-2xl px-4 py-3 shadow-xs flex items-center gap-3">
-            <span class="text-xs font-medium text-brand-600 animate-shimmer">Thinking</span>
-            <div class="flex items-center gap-1.5 pt-1">
-                <span class="w-2.5 h-2.5 bg-brand-500 rounded-full animate-dot-1"></span>
-                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-dot-2"></span>
-                <span class="w-2.5 h-2.5 bg-brand-600 rounded-full animate-dot-3"></span>
-            </div>
-        </div>
-    `;
-
-    chatMessagesEl.appendChild(typingDiv);
-    scrollToBottom();
-
-    try {
-        const [response] = await Promise.all([
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: text,
-                    session_id: sessionId
-                })
-            }),
-            new Promise(resolve => setTimeout(resolve, 750))
-        ]);
-
-        if (!response.ok) {
-            throw new Error('Server returned HTTP ' + response.status);
-        }
-
-        const data = await response.json();
-
-        if (data.session_id) {
-            sessionId = data.session_id;
+        // ==========================================
+        // READYKOMUNIDAD - MAIN CHATBOT SCRIPT
+        // ==========================================
+        let messages = [];
+        let sessionId = localStorage.getItem('rk_session_id') || '';
+
+        function newSessionId() {
+            sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'sess-' + Date.now();
             localStorage.setItem('rk_session_id', sessionId);
         }
+        if (!sessionId) newSessionId();
 
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) indicator.remove();
+        const chatMessagesEl = document.getElementById('chat-messages');
+        const userInputEl = document.getElementById('user-input');
+        const chatFormEl = document.getElementById('chat-form');
+        const scrollBottomBtn = document.getElementById('scroll-to-bottom-btn');
 
-        messages.push({
-            sender: 'bot',
-            text: data.reply || 'Sorry, I could not generate a response.',
-            time: getCurrentTime()
-        });
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = String(text ?? '');
+            return div.innerHTML;
+        }
 
-        renderMessages();
+        window.onload = async function () {
+            try {
+                const res = await fetch('/api/history?session_id=' + encodeURIComponent(sessionId));
+                const data = await res.json();
+                if (data.messages && Array.isArray(data.messages)) {
+                    messages = data.messages;
+                }
+            } catch (error) {
+                console.error('History loading failed:', error);
+                messages = [];
+            }
+            renderMessages();
+            // Preload announcements count for header indicator
+            loadCommunityAnnouncements(true);
+        };
 
-    } catch (error) {
-        console.error('Chat request failed:', error);
+        function getCurrentTime() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
 
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) indicator.remove();
+        function sanitizeChatHtml(html) {
+            return DOMPurify.sanitize(html, {
+                ALLOWED_TAGS: [
+                    'div', 'span', 'p', 'br', 'strong', 'em', 'b', 'i', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li',
+                    'a', 'img', 'code', 'pre', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'button',
+                    'svg', 'path', 'rect', 'line', 'circle', 'polyline', 'polygon', 'g', 'text', 'tspan'
+                ],
+                ALLOWED_ATTR: [
+                    'class', 'src', 'alt', 'title', 'href', 'target', 'rel', 'width', 'height', 'viewBox',
+                    'd', 'fill', 'stroke', 'stroke-width', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'cx', 'cy',
+                    'r', 'rx', 'ry', 'points', 'transform', 'colspan', 'rowspan', 'data-prompt'
+                ]
+            });
+        }
 
-        messages.push({
-            sender: 'bot',
-            text: '⚠️ Unable to connect to the chatbot server. Please check your connection.',
-            time: getCurrentTime()
-        });
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let result = String(text);
 
-        renderMessages();
-    }
-}
+            result = result.replace(/onclick\s*=\s*(["'])sendQuickPrompt\((['"])(.*?)\2\)\1/gi,
+                (match, outerQuote, innerQuote, prompt) => `data-prompt="${escapeHTML(prompt)}"`);
 
+            if (result.includes('<!-- RAINFALL_CARD -->')) {
+                return sanitizeChatHtml(result);
+            }
 
-// ==========================================
-// QUICK PROMPTS
-// ==========================================
+            result = result
+                .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900 dark:text-white">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em class="italic text-slate-600 dark:text-slate-300">$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>');
 
-function sendQuickPrompt(promptText) {
-    userInputEl.value = promptText;
-    handleUserSubmit();
-}
+            const lines = result.split('\n');
+            const processed = [];
+            let imgBuffer = [];
 
+            function flushImages() {
+                if (!imgBuffer.length) return;
+                processed.push(`<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2.5">${imgBuffer.join('')}</div>`);
+                imgBuffer = [];
+            }
 
-// ==========================================
-// CLEAR CHAT
-// ==========================================
+            lines.forEach(line => {
+                const imgMatch = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+                if (imgMatch) {
+                    imgBuffer.push(`<img src="${escapeHTML(imgMatch[2])}" alt="${escapeHTML(imgMatch[1])}" class="chat-img-thumb w-full h-36 object-cover rounded-xl border border-slate-200/80 dark:border-slate-800">`);
+                } else {
+                    flushImages();
+                    if (/^### /.test(line)) processed.push(`<h3>${line.slice(4)}</h3>`);
+                    else if (/^## /.test(line)) processed.push(`<h2>${line.slice(3)}</h2>`);
+                    else if (/^# /.test(line)) processed.push(`<h1>${line.slice(2)}</h1>`);
+                    else if (/^- /.test(line)) processed.push(`<div>• ${line.slice(2)}</div>`);
+                    else processed.push(line);
+                }
+            });
+            flushImages();
+            return sanitizeChatHtml(processed.join('<br>'));
+        }
 
-function clearChat() {
-    newSessionId();
-    messages = [];
-    renderMessages();
-}
+        function renderMessages() {
+            chatMessagesEl.innerHTML = '';
+            if (messages.length === 0) {
+                renderWelcomeScreen();
+                return;
+            }
 
+            messages.forEach(msg => {
+                const isBot = msg.sender === 'bot';
+                const messageWrapper = document.createElement('div');
+                messageWrapper.className = `flex flex-col animate-fade-in ${isBot ? 'items-start' : 'items-end'}`;
 
-// ==========================================
-// IMAGE LIGHTBOX
-// ==========================================
+                const bubbleStyle = isBot
+                    ? 'bg-transparent text-slate-800 dark:text-slate-100 max-w-full sm:max-w-[92%]'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%] sm:max-w-[75%] border border-slate-200/60 dark:border-slate-700/50 shadow-2xs';
 
-function openLightbox(src) {
-    const box = document.getElementById('image-lightbox');
-    const img = document.getElementById('lightbox-img');
+                const botHeader = isBot ? `
+                    <div class="flex items-center gap-2 mb-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                        <i class="fa-solid fa-sun text-[11px] text-amber-500"></i>
+                        <span>ReadyKomunidad</span>
+                        <span>•</span>
+                        <span>${escapeHTML(msg.time || '')}</span>
+                        <button type="button" class="copy-message-btn hover:text-brand-500 transition-colors ml-1 p-0.5" title="Copy response">
+                            <i class="fa-regular fa-copy text-[11px]"></i>
+                        </button>
+                    </div>` : '';
 
-    img.src = src;
-    box.classList.add('open');
-}
+                messageWrapper.innerHTML = `
+                    ${botHeader}
+                    <div class="message-bubble ${bubbleStyle} text-sm leading-relaxed">
+                        ${isBot ? formatMarkdown(msg.text) : escapeHTML(msg.text).replace(/\n/g, '<br>')}
+                    </div>
+                    ${!isBot ? `<div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 mr-1">${escapeHTML(msg.time || '')}</div>` : ''}
+                `;
 
-function closeLightbox(e) {
-    const box = document.getElementById('image-lightbox');
+                if (isBot) {
+                    const copyBtn = messageWrapper.querySelector('.copy-message-btn');
+                    const bubble = messageWrapper.querySelector('.message-bubble');
+                    copyBtn.addEventListener('click', () => copyMessage(copyBtn, bubble));
+                    bubble.querySelectorAll('.chat-img-thumb').forEach(img => {
+                        img.addEventListener('click', () => openLightbox(img.src));
+                        img.addEventListener('error', () => { img.style.display = 'none'; });
+                    });
+                    bubble.querySelectorAll('button[data-prompt]').forEach(button => {
+                        button.addEventListener('click', () => sendQuickPrompt(button.dataset.prompt));
+                    });
+                }
+                chatMessagesEl.appendChild(messageWrapper);
+            });
+            scrollToBottom();
+        }
 
-    box.classList.remove('open');
+        function renderWelcomeScreen() {
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'h-full flex flex-col justify-center items-center text-center max-w-xl mx-auto px-2 py-6 animate-fade-in select-none';
+            welcomeDiv.innerHTML = `
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/25 mb-5">
+                    <i class="fa-solid fa-sun text-2xl animate-spin" style="animation-duration: 25s;"></i>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mb-2.5">
+                    Hello! How can I help you today?
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 max-w-md">
+                    Ask about El Niño, local preparedness, rainfall information, and community assistance in Padre Garcia, Batangas.
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+                    <button onclick="sendQuickPrompt('What is El Niño?')" class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                        <span class="text-base text-amber-500 mt-0.5"><i class="fa-solid fa-sun"></i></span>
+                        <div>
+                            <span class="font-medium block mb-0.5">What is El Niño?</span>
+                            <span class="text-slate-400 text-[11px] block">Understand causes, mechanics & local risks</span>
+                        </div>
+                    </button>
+                    <button onclick="sendQuickPrompt('What should I do during El Niño?')" class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                        <span class="text-base text-sky-500 mt-0.5"><i class="fa-solid fa-faucet-drip"></i></span>
+                        <div>
+                            <span class="font-medium block mb-0.5">Preparedness</span>
+                            <span class="text-slate-400 text-[11px] block">Action tips for households & farmers</span>
+                        </div>
+                    </button>
+                    <button onclick="sendQuickPrompt('Predict rainfall for May')" class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                        <span class="text-base text-emerald-500 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        <div>
+                            <span class="font-medium block mb-0.5">Predict Rainfall for May</span>
+                            <span class="text-slate-400 text-[11px] block">AI forecasting for Padre Garcia</span>
+                        </div>
+                    </button>
+                    <button onclick="sendQuickPrompt('Who to contact during an El Niño emergency?')" class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 hover:border-brand-500/60 transition-all text-xs group flex items-start gap-3 shadow-2xs">
+                        <span class="text-base text-rose-500 mt-0.5"><i class="fa-solid fa-phone-volume"></i></span>
+                        <div>
+                            <span class="font-medium block mb-0.5">Emergency & LGU Contacts</span>
+                            <span class="text-slate-400 text-[11px] block">MDRRMO, RHU & emergency hotlines</span>
+                        </div>
+                    </button>
+                </div>
+            `;
+            chatMessagesEl.appendChild(welcomeDiv);
+        }
 
-    document.getElementById('lightbox-img').src = '';
-}
+        async function handleUserSubmit(e) {
+            if (e) e.preventDefault();
+            const text = userInputEl.value.trim();
+            if (!text) return;
 
+            messages.push({ sender: 'user', text: text, time: getCurrentTime() });
+            userInputEl.value = '';
+            renderMessages();
 
-// ==========================================
-// SCROLL TO BOTTOM
-// ==========================================
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'flex items-start gap-3 animate-fade-in my-2';
+            typingDiv.innerHTML = `
+                <div class="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white text-xs shadow-md shrink-0 mt-0.5">
+                    <i class="fa-solid fa-sun text-sm animate-spin" style="animation-duration: 20s;"></i>
+                </div>
+                <div class="bg-white dark:bg-slate-900 border border-brand-200/80 dark:border-brand-900/60 rounded-2xl px-4 py-3 shadow-xs flex items-center gap-3">
+                    <span class="text-xs font-medium text-brand-600 animate-shimmer">Thinking</span>
+                    <div class="flex items-center gap-1.5 pt-1">
+                        <span class="w-2.5 h-2.5 bg-brand-500 rounded-full animate-dot-1"></span>
+                        <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-dot-2"></span>
+                        <span class="w-2.5 h-2.5 bg-brand-600 rounded-full animate-dot-3"></span>
+                    </div>
+                </div>`;
+            chatMessagesEl.appendChild(typingDiv);
+            scrollToBottom();
 
-function scrollToBottom() {
-    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-}
+            try {
+                const [response] = await Promise.all([
+                    fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text, session_id: sessionId })
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 600))
+                ]);
+                if (!response.ok) throw new Error('Server returned HTTP ' + response.status);
+                const data = await response.json();
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('rk_session_id', sessionId);
+                }
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) indicator.remove();
 
-chatMessagesEl.addEventListener('scroll', function () {
-    const dist =
-        chatMessagesEl.scrollHeight -
-        chatMessagesEl.scrollTop -
-        chatMessagesEl.clientHeight;
-
-    if (dist > 120 && messages.length > 0) {
-        scrollBottomBtn.classList.remove('hidden');
-    } else {
-        scrollBottomBtn.classList.add('hidden');
-    }
-});
-
-
-// ==========================================
-// DARK MODE
-// ==========================================
-
-function toggleDarkMode() {
-    document.documentElement.classList.toggle('dark');
-
-    const isDark =
-        document.documentElement.classList.contains('dark');
-
-    const icon = document.getElementById('theme-icon');
-
-    icon.className = isDark
-        ? 'fa-solid fa-sun'
-        : 'fa-solid fa-moon';
-}
-
-
-// ==========================================
-// COPY CHATBOT RESPONSE ONLY
-// ==========================================
-
-async function copyMessage(btn, bubble) {
-    const plainText = bubble.innerText.trim();
-    const icon = btn.querySelector('i');
-
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(plainText);
-        } else {
-            const textarea = document.createElement('textarea');
-
-            textarea.value = plainText;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-
-            document.body.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-
-            const copied = document.execCommand('copy');
-
-            textarea.remove();
-
-            if (!copied) {
-                throw new Error('Copy failed');
+                messages.push({
+                    sender: 'bot',
+                    text: data.reply || 'Sorry, I could not generate a response.',
+                    time: getCurrentTime()
+                });
+                renderMessages();
+            } catch (error) {
+                console.error('Chat request failed:', error);
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) indicator.remove();
+                messages.push({
+                    sender: 'bot',
+                    text: '⚠️ Unable to connect to the chatbot server. Please check your connection.',
+                    time: getCurrentTime()
+                });
+                renderMessages();
             }
         }
 
-        icon.className =
-            'fa-solid fa-check text-[11px] text-emerald-500';
+        function sendQuickPrompt(promptText) {
+            userInputEl.value = promptText;
+            handleUserSubmit();
+        }
 
-        btn.title = 'Copied!';
+        function clearChat() {
+            newSessionId();
+            messages = [];
+            renderMessages();
+        }
 
-    } catch (error) {
-        console.error('Copy failed:', error);
+        function openLightbox(src) {
+            const box = document.getElementById('image-lightbox');
+            document.getElementById('lightbox-img').src = src;
+            box.classList.add('open');
+        }
 
-        icon.className =
-            'fa-solid fa-xmark text-[11px] text-red-500';
+        function closeLightbox(e) {
+            const box = document.getElementById('image-lightbox');
+            box.classList.remove('open');
+            document.getElementById('lightbox-img').src = '';
+        }
 
-        btn.title = 'Copy failed';
-    }
+        function scrollToBottom() {
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        }
 
-    setTimeout(() => {
-        icon.className = 'fa-regular fa-copy text-[11px]';
-        btn.title = 'Copy response';
-    }, 1800);
-}
+        chatMessagesEl.addEventListener('scroll', function () {
+            const dist = chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight;
+            if (dist > 120 && messages.length > 0) {
+                scrollBottomBtn.classList.remove('hidden');
+            } else {
+                scrollBottomBtn.classList.add('hidden');
+            }
+        });
 
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('theme-icon').className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
 
-    </script>
-    <script>
+        async function copyMessage(btn, bubble) {
+            const plainText = bubble.innerText.trim();
+            const icon = btn.querySelector('i');
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(plainText);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = plainText;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    document.execCommand('copy');
+                    textarea.remove();
+                }
+                icon.className = 'fa-solid fa-check text-[11px] text-emerald-500';
+                btn.title = 'Copied!';
+            } catch (error) {
+                icon.className = 'fa-solid fa-xmark text-[11px] text-red-500';
+                btn.title = 'Copy failed';
+            }
+            setTimeout(() => {
+                icon.className = 'fa-regular fa-copy text-[11px]';
+                btn.title = 'Copy response';
+            }, 1800);
+        }
+
+        // ==========================================
+        // SIDEBAR & ANNOUNCEMENT LOGIC (MODERNIZED)
+        // ==========================================
+        let rawAnnouncements = [];
         const communitySidebar = document.getElementById("community-sidebar");
         const communitySidebarBackdrop = document.getElementById("community-sidebar-backdrop");
         const communitySidebarTrigger = document.getElementById("community-sidebar-trigger");
 
-        function openCommunitySidebar() {
+        function openCommunitySidebar(targetTab = 'announcements') {
             communitySidebar.inert = false;
             communitySidebar.setAttribute("aria-hidden", "false");
             communitySidebarTrigger.setAttribute("aria-expanded", "true");
             communitySidebarBackdrop.setAttribute("aria-hidden", "false");
             communitySidebarBackdrop.classList.remove("pointer-events-none", "opacity-0");
             requestAnimationFrame(() => communitySidebar.classList.remove("-translate-x-full"));
-            communitySidebar.querySelector("button").focus();
+            
+            switchSidebarTab(targetTab);
             loadCommunityAnnouncements();
         }
 
@@ -843,62 +693,177 @@ async function copyMessage(btn, bubble) {
             communitySidebarTrigger.focus();
         }
 
-        async function loadCommunityAnnouncements() {
+        function switchSidebarTab(tabName) {
+            const btnAnn = document.getElementById('tab-btn-announcements');
+            const btnFeed = document.getElementById('tab-btn-feedback');
+            const secAnn = document.getElementById('sidebar-tab-announcements');
+            const secFeed = document.getElementById('sidebar-tab-feedback');
+
+            if (tabName === 'announcements') {
+                secAnn.classList.remove('hidden');
+                secFeed.classList.add('hidden');
+                btnAnn.className = 'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold';
+                btnFeed.className = 'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all hover:text-slate-900 dark:hover:text-white font-medium text-slate-500';
+            } else {
+                secAnn.classList.add('hidden');
+                secFeed.classList.remove('hidden');
+                btnFeed.className = 'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold';
+                btnAnn.className = 'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all hover:text-slate-900 dark:hover:text-white font-medium text-slate-500';
+            }
+        }
+
+        async function loadCommunityAnnouncements(silent = false) {
             const list = document.getElementById("community-announcements");
-            list.textContent = "Loading announcements…";
+            if (!silent) {
+                list.innerHTML = `
+                    <div class="py-8 text-center text-xs text-slate-400 dark:text-slate-500 flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-base text-amber-500"></i>
+                        <span>Loading official bulletins...</span>
+                    </div>`;
+            }
             try {
                 const response = await fetch("/api/announcements");
                 const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.error || "Announcements could not be loaded.");
+                if (!response.ok) throw new Error(result.error || "Could not load announcements.");
+
+                rawAnnouncements = result.items || [];
+                
+                // Update badge counts
+                const countPill = document.getElementById('announcement-count-pill');
+                const headerBadge = document.getElementById('header-bulletin-badge');
+                if (countPill) countPill.innerText = rawAnnouncements.length;
+                if (headerBadge) {
+                    if (rawAnnouncements.length === 0) headerBadge.classList.add('hidden');
+                    else headerBadge.classList.remove('hidden');
                 }
-                list.replaceChildren();
-                if (!result.items.length) {
-                    list.textContent = "There are no current community announcements.";
-                    return;
+
+                if (!silent) {
+                    renderAnnouncementsList(rawAnnouncements);
                 }
-                result.items.forEach(item => {
-                    const article = document.createElement("article");
-                    article.className = "rounded-xl border border-slate-200 dark:border-slate-700 p-3";
-                    const title = document.createElement("h4");
-                    title.className = "text-sm font-medium text-slate-800 dark:text-slate-100";
-                    title.textContent = item.title;
-                    const content = document.createElement("p");
-                    content.className = "mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600 dark:text-slate-300";
-                    content.textContent = item.content;
-                    article.append(title, content);
-                    list.append(article);
-                });
             } catch (error) {
-                list.textContent = error.message || "Announcements could not be loaded.";
+                if (!silent) {
+                    list.innerHTML = `<div class="p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-xs text-center">${escapeHTML(error.message)}</div>`;
+                }
             }
+        }
+
+        function renderAnnouncementsList(items) {
+            const list = document.getElementById("community-announcements");
+            list.innerHTML = '';
+
+            if (!items.length) {
+                list.innerHTML = `
+                    <div class="py-10 px-4 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+                        <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto text-sm">
+                            <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">No Active Advisories</h4>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-normal max-w-xs mx-auto">
+                            There are currently no active weather bulletins or emergency directives in Padre Garcia.
+                        </p>
+                    </div>`;
+                return;
+            }
+
+            items.forEach((item, index) => {
+                const isLong = (item.content || '').length > 180 || (item.content || '').split('\n').length > 3;
+                const card = document.createElement("article");
+                card.className = "p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900/70 shadow-xs space-y-2.5 transition hover:border-slate-300 dark:hover:border-slate-700";
+
+                const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Official Notice';
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0"></span>
+                            <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Advisory</span>
+                            <span class="text-[10px] text-slate-400">•</span>
+                            <span class="text-[10px] text-slate-400 font-medium">${escapeHTML(dateStr)}</span>
+                        </div>
+                        ${item.expires_at ? `<span class="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Valid until ${escapeHTML(item.expires_at)}</span>` : ''}
+                    </div>
+
+                    <h4 class="text-xs font-bold text-slate-900 dark:text-white leading-snug tracking-tight">${escapeHTML(item.title)}</h4>
+
+                    <div id="announcement-body-${index}" class="text-xs leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap ${isLong ? 'line-clamp-content' : ''}">${escapeHTML(item.content)}</div>
+
+                    ${isLong ? `
+                        <button type="button" onclick="toggleAnnouncementExpand(${index})" id="announcement-btn-${index}"
+                            class="text-[11px] font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 pt-1">
+                            <span>Read full bulletin</span>
+                            <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200"></i>
+                        </button>
+                    ` : ''}
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function toggleAnnouncementExpand(index) {
+            const textEl = document.getElementById(`announcement-body-${index}`);
+            const btnEl = document.getElementById(`announcement-btn-${index}`);
+            if (!textEl || !btnEl) return;
+
+            const isExpanded = textEl.classList.contains('expanded');
+            if (isExpanded) {
+                textEl.classList.remove('expanded');
+                textEl.classList.add('line-clamp-content');
+                btnEl.innerHTML = `<span>Read full bulletin</span><i class="fa-solid fa-chevron-down text-[9px]"></i>`;
+            } else {
+                textEl.classList.add('expanded');
+                textEl.classList.remove('line-clamp-content');
+                btnEl.innerHTML = `<span>Show less</span><i class="fa-solid fa-chevron-up text-[9px]"></i>`;
+            }
+        }
+
+        function filterAnnouncementsList() {
+            const query = (document.getElementById('announcement-search').value || '').toLowerCase().trim();
+            if (!query) {
+                renderAnnouncementsList(rawAnnouncements);
+                return;
+            }
+            const filtered = rawAnnouncements.filter(a =>
+                (a.title || '').toLowerCase().includes(query) ||
+                (a.content || '').toLowerCase().includes(query)
+            );
+            renderAnnouncementsList(filtered);
+        }
+
+        function updateCharCount(textarea) {
+            const counter = document.getElementById('feedback-char-count');
+            if (counter) counter.innerText = `${textarea.value.length} / 2000`;
         }
 
         async function submitCommunityFeedback(event) {
             event.preventDefault();
             const form = event.currentTarget;
             const status = document.getElementById("feedback-status");
-            const submit = form.querySelector('button[type="submit"]');
-            submit.disabled = true;
-            status.textContent = "Sending…";
+            const submitBtn = document.getElementById("feedback-submit-btn");
+
+            submitBtn.disabled = true;
+            status.innerHTML = `<span class="text-slate-400"><i class="fa-solid fa-circle-notch fa-spin"></i> Submitting securely...</span>`;
+
             try {
+                const selectedType = form.elements.feedback_type.value;
                 const response = await fetch("/api/feedback", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        message: `[${form.elements.feedback_type.value}] ${form.elements.message.value.trim()}`
+                        resident_name: "Anonymous Citizen",
+                        message: `[${selectedType}] ${form.elements.message.value.trim()}`
                     })
                 });
                 const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.error || "Feedback could not be sent.");
-                }
+                if (!response.ok) throw new Error(result.error || "Submission failed.");
+
                 form.reset();
-                status.textContent = "Thank you! Your anonymous message was received.";
+                updateCharCount(form.elements.message);
+                status.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Thank you! Message received by MDRRMO.</span>`;
+                setTimeout(() => { status.innerText = ''; }, 4500);
             } catch (error) {
-                status.textContent = error.message || "Feedback could not be sent.";
+                status.innerHTML = `<span class="text-rose-500 font-semibold">${escapeHTML(error.message)}</span>`;
             } finally {
-                submit.disabled = false;
+                submitBtn.disabled = false;
             }
         }
 

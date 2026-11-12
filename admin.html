@@ -1,1750 +1,1100 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReadyKomunidad | Admin Panel</title>
-
-<style>
-:root {
-    --primary: #174b7a;
-    --primary-light: #eaf2fa;
-    --bg: #f5f7fb;
-    --white: #ffffff;
-    --text: #263445;
-    --muted: #7b8794;
-    --border: #e5eaf0;
-    --green: #198754;
-    --orange: #d68a18;
-    --red: #dc3545;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: "Segoe UI", Arial, sans-serif;
-}
-
-body {
-    background: var(--bg);
-    color: var(--text);
-}
-
-button, input, select, textarea {
-    font: inherit;
-}
-
-button {
-    cursor: pointer;
-    border: none;
-}
-
-.layout {
-    display: flex;
-    min-height: 100vh;
-}
-
-/* SIDEBAR */
-
-.sidebar {
-    width: 245px;
-    background: var(--white);
-    border-right: 1px solid var(--border);
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    transition: .25s;
-}
-
-.brand {
-    height: 78px;
-    padding: 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid var(--border);
-}
-
-.brand-icon {
-    background: var(--primary);
-    color: white;
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    font-size: 20px;
-}
-
-.brand h2 {
-    font-size: 17px;
-    color: var(--primary);
-}
-
-.brand small {
-    color: var(--muted);
-    font-size: 11px;
-}
-
-.menu-label {
-    padding: 25px 20px 10px;
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-.nav-menu {
-    padding: 0 12px;
-}
-
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 12px 14px;
-    margin-bottom: 5px;
-    border-radius: 8px;
-    color: #627184;
-    font-size: 13px;
-    background: transparent;
-    width: 100%;
-    text-align: left;
-}
-
-.nav-item:hover,
-.nav-item.active {
-    background: var(--primary-light);
-    color: var(--primary);
-}
-
-.nav-icon {
-    width: 20px;
-    text-align: center;
-    font-size: 17px;
-}
-
-.sidebar-bottom {
-    margin-top: auto;
-    padding: 15px;
-    border-top: 1px solid var(--border);
-}
-
-.admin-mini {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.avatar {
-    width: 37px;
-    height: 37px;
-    background: #dceafa;
-    color: var(--primary);
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-weight: bold;
-}
-
-.admin-mini strong {
-    font-size: 12px;
-}
-
-.admin-mini small {
-    display: block;
-    font-size: 11px;
-    color: var(--muted);
-}
-
-/* MAIN */
-
-.main {
-    margin-left: 245px;
-    width: calc(100% - 245px);
-}
-
-.topbar {
-    height: 78px;
-    background: white;
-    border-bottom: 1px solid var(--border);
-    padding: 0 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-}
-
-.top-left {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.topbar h3 {
-    font-size: 17px;
-}
-
-.topbar p {
-    color: var(--muted);
-    font-size: 12px;
-    margin-top: 3px;
-}
-
-.top-right {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-}
-
-.icon-button {
-    background: none;
-    font-size: 20px;
-    color: #627184;
-    position: relative;
-}
-
-.profile {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-}
-
-.profile-info strong {
-    font-size: 12px;
-}
-
-.profile-info small {
-    display: block;
-    font-size: 10px;
-    color: var(--muted);
-}
-
-.mobile-toggle {
-    display: none;
-    background: none;
-    font-size: 23px;
-}
-
-.content {
-    padding: 30px;
-    max-width: 1500px;
-    margin: auto;
-}
-
-.page {
-    display: none;
-}
-
-.page.active {
-    display: block;
-}
-
-.page-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
-}
-
-.page-heading h1 {
-    font-size: 23px;
-    margin-bottom: 6px;
-}
-
-.page-heading p {
-    font-size: 13px;
-    color: var(--muted);
-}
-
-/* BUTTONS */
-
-.btn {
-    padding: 10px 16px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.btn-primary {
-    background: var(--primary);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #10385e;
-}
-
-.btn-light {
-    background: var(--primary-light);
-    color: var(--primary);
-}
-
-.btn-danger {
-    background: #fff0f0;
-    color: var(--red);
-}
-
-.btn-success {
-    background: #e8f6ed;
-    color: var(--green);
-}
-
-/* CARDS */
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-    margin-bottom: 25px;
-}
-
-.stat-card {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    padding: 20px;
-}
-
-.stat-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.stat-icon {
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    background: var(--primary-light);
-    color: var(--primary);
-    border-radius: 9px;
-    font-size: 19px;
-}
-
-.stat-card h2 {
-    font-size: 27px;
-    margin-top: 17px;
-}
-
-.stat-card p {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 5px;
-}
-
-/* PANELS */
-
-.panel {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    margin-bottom: 22px;
-    overflow: hidden;
-}
-
-.panel-header {
-    padding: 19px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-    gap: 10px;
-}
-
-.panel-header h3 {
-    font-size: 14px;
-}
-
-.panel-body {
-    padding: 20px;
-}
-
-.activity {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 13px 0;
-    border-bottom: 1px solid var(--border);
-}
-
-.activity:last-child {
-    border: none;
-}
-
-.activity-icon {
-    width: 35px;
-    height: 35px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: var(--primary-light);
-}
-
-.activity strong {
-    font-size: 12px;
-}
-
-.activity small {
-    display: block;
-    color: var(--muted);
-    font-size: 11px;
-    margin-top: 4px;
-}
-
-/* TABLES */
-
-.table-tools {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 17px;
-    flex-wrap: wrap;
-}
-
-.search {
-    padding: 10px 13px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    width: 260px;
-    outline: none;
-    font-size: 12px;
-}
-
-.search:focus,
-input:focus,
-textarea:focus,
-select:focus {
-    border-color: var(--primary);
-}
-
-.table-wrap {
-    overflow-x: auto;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    white-space: nowrap;
-}
-
-th {
-    background: #f8fafc;
-    color: #687789;
-    font-size: 11px;
-    text-align: left;
-    padding: 14px 17px;
-    font-weight: 600;
-}
-
-td {
-    padding: 15px 17px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-}
-
-td strong {
-    font-size: 12px;
-}
-
-.muted {
-    color: var(--muted);
-}
-
-.badge {
-    display: inline-block;
-    padding: 5px 9px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 600;
-}
-
-.published, .resolved, .active-status {
-    background: #e8f6ed;
-    color: var(--green);
-}
-
-.draft, .pending {
-    background: #fff4df;
-    color: var(--orange);
-}
-
-.archived, .inactive {
-    background: #edf0f4;
-    color: #667085;
-}
-
-.reviewed {
-    background: #eaf2fa;
-    color: var(--primary);
-}
-
-.actions {
-    display: flex;
-    gap: 7px;
-}
-
-.action-btn {
-    background: #f1f4f8;
-    padding: 6px 9px;
-    border-radius: 5px;
-    font-size: 11px;
-}
-
-.action-btn:hover {
-    background: #e2eaf3;
-}
-
-/* SETTINGS */
-
-.settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 7px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 11px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    outline: none;
-    font-size: 12px;
-}
-
-.form-group textarea {
-    min-height: 100px;
-    resize: vertical;
-}
-
-.switch-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border);
-}
-
-.switch-row strong {
-    font-size: 12px;
-}
-
-.switch-row small {
-    display: block;
-    color: var(--muted);
-    font-size: 11px;
-    margin-top: 4px;
-}
-
-input[type="checkbox"] {
-    accent-color: var(--primary);
-    width: 17px;
-    height: 17px;
-}
-
-/* MODAL */
-
-.modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 30, 45, .5);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 15px;
-}
-
-.modal.show {
-    display: flex;
-}
-
-.modal-box {
-    background: white;
-    width: 100%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-    border-radius: 12px;
-}
-
-.modal-header {
-    padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-}
-
-.modal-header h3 {
-    font-size: 16px;
-}
-
-.modal-close {
-    background: none;
-    font-size: 21px;
-}
-
-.modal-body {
-    padding: 20px;
-}
-
-.modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-/* FEEDBACK */
-
-.feedback-card {
-    border: 1px solid var(--border);
-    padding: 17px;
-    border-radius: 9px;
-    margin-bottom: 12px;
-}
-
-.feedback-card h4 {
-    font-size: 13px;
-    margin-bottom: 7px;
-}
-
-.feedback-card p {
-    font-size: 12px;
-    color: #687789;
-    line-height: 1.6;
-}
-
-.feedback-meta {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 13px;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-/* RESPONSIVE */
-
-@media(max-width: 950px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .sidebar {
-        transform: translateX(-100%);
-    }
-
-    .sidebar.open {
-        transform: translateX(0);
-    }
-
-    .main {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .mobile-toggle {
-        display: block;
-    }
-}
-
-@media(max-width: 600px) {
-    .content {
-        padding: 18px 13px;
-    }
-
-    .topbar {
-        padding: 0 15px;
-    }
-
-    .stats-grid {
-        gap: 10px;
-    }
-
-    .stat-card {
-        padding: 14px;
-    }
-
-    .stat-card h2 {
-        font-size: 23px;
-    }
-
-    .profile-info {
-        display: none;
-    }
-
-    .settings-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .search {
-        width: 100%;
-    }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReadyKomunidad — Admin Console</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
 </head>
+<body class="h-full overflow-hidden text-slate-800 bg-slate-100 flex">
 
-<body>
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-<div class="layout">
-
-<!-- SIDEBAR -->
-<aside class="sidebar" id="sidebar">
-
-    <div class="brand">
-        <div class="brand-icon">🛡</div>
-        <div>
-            <h2>ReadyKomunidad</h2>
-            <small>Administration Panel</small>
-        </div>
-    </div>
-
-    <div class="menu-label">MAIN MENU</div>
-
-    <nav class="nav-menu">
-        <button class="nav-item active" data-page="dashboard">
-            <span class="nav-icon">▦</span> Dashboard
-        </button>
-
-        <button class="nav-item" data-page="knowledge">
-            <span class="nav-icon">▤</span> Knowledge Base
-        </button>
-
-        <button class="nav-item" data-page="announcements">
-            <span class="nav-icon">📢</span> Announcements
-        </button>
-
-        <button class="nav-item" data-page="feedback">
-            <span class="nav-icon">☷</span> Community Feedback
-        </button>
-
-        <button class="nav-item" data-page="users">
-            <span class="nav-icon">♙</span> User Management
-        </button>
-
-        <button class="nav-item" data-page="settings">
-            <span class="nav-icon">⚙</span> Settings
-        </button>
-    </nav>
-
-    <div class="sidebar-bottom">
-        <div class="admin-mini">
-            <div class="avatar">A</div>
-            <div>
-                <strong>Administrator</strong>
-                <small>System Admin</small>
-            </div>
-        </div>
-    </div>
-</aside>
-
-
-<!-- MAIN CONTENT -->
-<main class="main">
-
-    <header class="topbar">
-        <div class="top-left">
-            <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-            <div>
-                <h3 id="pageTitle">Dashboard</h3>
-                <p>ReadyKomunidad Administration</p>
-            </div>
-        </div>
-
-        <div class="top-right">
-            <button class="icon-button" title="Notifications">♧</button>
-            <div class="profile">
-                <div class="avatar">A</div>
-                <div class="profile-info">
-                    <strong id="profileName">Administrator</strong>
-                    <small>Admin Account</small>
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800 transition-all duration-300 select-none">
+        <!-- Logo Header -->
+        <div class="h-16 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-950/40">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-900/30">
+                    <i class="fa-solid fa-leaf text-base"></i>
                 </div>
-            </div>
-            <button class="btn btn-light" onclick="logoutAdmin()">Sign out</button>
-        </div>
-    </header>
-
-
-    <div class="content">
-        <p id="adminNotice" role="status" aria-live="polite"></p>
-
-        <!-- DASHBOARD -->
-        <section class="page active" id="dashboard">
-
-            <div class="page-heading">
                 <div>
-                    <h1>Dashboard Overview</h1>
-                    <p>Welcome back! Here's what's happening in your system.</p>
+                    <h1 class="font-bold text-white tracking-tight leading-tight text-sm">ReadyKomunidad</h1>
+                    <span class="text-[10px] uppercase font-semibold text-emerald-400 tracking-wider">Admin Center</span>
                 </div>
             </div>
+        </div>
 
-            <div class="stats-grid">
-
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <span class="muted">Knowledge Articles</span>
-                        <div class="stat-icon">▤</div>
+        <!-- Automatic Live Status Banner -->
+        <div class="px-4 py-3 border-b border-slate-800/80 bg-slate-900/50">
+            <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <span id="status-pulse" class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <div class="truncate">
+                        <div class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Bot Status</div>
+                        <div id="status-label" class="text-xs font-semibold text-emerald-400 truncate">Operational</div>
                     </div>
-                    <h2 id="articleCount">0</h2>
-                    <p>Total knowledge base articles</p>
                 </div>
-
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <span class="muted">Announcements</span>
-                        <div class="stat-icon">📢</div>
-                    </div>
-                    <h2 id="announcementCount">0</h2>
-                    <p>Published announcements</p>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <span class="muted">New Feedback</span>
-                        <div class="stat-icon">☷</div>
-                    </div>
-                    <h2 id="feedbackCount">0</h2>
-                    <p>Pending community feedback</p>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <span class="muted">Admin Accounts</span>
-                        <div class="stat-icon">♙</div>
-                    </div>
-                    <h2 id="userCount">0</h2>
-                    <p>Registered system accounts</p>
-                </div>
-
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>Recent Activities</h3>
-                </div>
-                <div class="panel-body" id="activityList">
-                    <p class="muted">No recent activities.</p>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>System Information</h3>
-                </div>
-                <div class="panel-body">
-                    <p style="font-size:13px;line-height:1.8">
-                        <strong>ReadyKomunidad</strong> is a community assistance
-                        chatbot designed to provide residents with information
-                        about El Niño preparedness, climate conditions,
-                        health safety, and community announcements.
-                    </p>
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- KNOWLEDGE BASE -->
-        <section class="page" id="knowledge">
-
-            <div class="page-heading">
-                <div>
-                    <h1>Knowledge Base</h1>
-                    <p>Manage the information used by ReadyKomunidad.</p>
-                </div>
-
-                <button class="btn btn-primary"
-                    onclick="openModal('knowledgeModal')">
-                    + Add Article
+                <button onclick="refreshBootstrap()" title="Refresh telemetry" class="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
                 </button>
             </div>
+        </div>
 
-            <div class="panel">
-                <div class="panel-body">
-                    <div class="table-tools">
-                        <input class="search" placeholder="Search articles..."
-                            oninput="searchTable(this,'knowledgeTable')">
+        <!-- Navigation Links -->
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-white bg-slate-800/90 shadow-sm">
+                <i class="fa-solid fa-chart-pie w-5 text-emerald-400"></i>
+                <span>Dashboard</span>
+            </button>
+            <button onclick="switchTab('knowledge')" id="nav-knowledge" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                <i class="fa-solid fa-book-open w-5 text-blue-400"></i>
+                <span>Knowledge Base</span>
+            </button>
+            <button onclick="switchTab('announcements')" id="nav-announcements" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                <i class="fa-solid fa-bullhorn w-5 text-amber-400"></i>
+                <span>Announcements</span>
+            </button>
+            <button onclick="switchTab('feedback')" id="nav-feedback" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                <i class="fa-solid fa-comments w-5 text-purple-400"></i>
+                <span>Resident Feedback</span>
+            </button>
+            <button onclick="switchTab('users')" id="nav-users" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                <i class="fa-solid fa-users-gear w-5 text-rose-400"></i>
+                <span>Admin Users</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                <i class="fa-solid fa-sliders w-5 text-cyan-400"></i>
+                <span>System Settings</span>
+            </button>
+        </nav>
 
-                        <select class="search" onchange="filterStatus(this,'knowledgeTable')">
-                            <option value="">All Status</option>
-                            <option>Published</option>
-                            <option>Draft</option>
-                            <option>Archived</option>
+        <!-- Current User Card & Logout -->
+        <div class="p-3 border-t border-slate-800 bg-slate-950/40">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800/80">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs border border-emerald-500/30">
+                        <span id="user-initials">AD</span>
+                    </div>
+                    <div class="truncate">
+                        <div id="user-name" class="text-xs font-semibold text-slate-200 truncate">Administrator</div>
+                        <div id="user-role" class="text-[10px] text-slate-500 truncate">Super Admin</div>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" title="Sign Out" class="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+            <div class="mt-2 text-center">
+                <a href="/" target="_blank" class="text-[11px] text-emerald-400 hover:underline flex items-center justify-center gap-1 font-medium">
+                    <span>Open Resident Chatbot</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
+        <!-- Top bar -->
+        <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-2xs">
+            <div class="flex items-center gap-3">
+                <h2 id="page-title" class="text-lg font-bold text-slate-900 tracking-tight">Overview Dashboard</h2>
+                <span id="page-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Live</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="refreshBootstrap()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-2 shadow-2xs">
+                    <i class="fa-solid fa-arrows-rotate text-slate-400"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Viewport Scrollable Body -->
+        <div class="flex-1 overflow-y-auto p-6">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content active space-y-6">
+                <!-- 4 KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Conversations</div>
+                            <div id="stat-chats" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">Resident chat sessions</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-message"></i>
+                        </div>
+                    </div>
+                    <div class="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Knowledge Base</div>
+                            <div id="stat-kb" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">Published answers</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-book-bookmark"></i>
+                        </div>
+                    </div>
+                    <div class="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Announcements</div>
+                            <div id="stat-announcements" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">Broadcasted to citizens</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-bullhorn"></i>
+                        </div>
+                    </div>
+                    <div class="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resident Feedback</div>
+                            <div id="stat-feedback" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">Submissions received</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-inbox"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts & Activity Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Analytics Chart -->
+                    <div class="lg:col-span-2 p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-sm">Community Inquiries & Usage Trends</h3>
+                                <p class="text-xs text-slate-500">Activity volume over recent days</p>
+                            </div>
+                            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Live Telemetry</span>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Server Diagnostics & Live Health -->
+                    <div class="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-sm mb-3">Live System Diagnostics</h3>
+                            <div class="space-y-3 text-xs">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Chatbot Mode</span>
+                                    <span id="diag-bot-mode" class="font-semibold text-slate-900">Loading...</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">AI Rain Forecast Model</span>
+                                    <span id="diag-model" class="font-semibold text-emerald-600">Operational</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Master Climate Records</span>
+                                    <span id="diag-dataset" class="font-semibold text-slate-900">Loading...</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Database (SQLite)</span>
+                                    <span class="font-semibold text-emerald-600">Connected</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-slate-100 mt-4">
+                            <button onclick="switchTab('settings')" class="w-full py-2 px-3 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-sliders text-xs"></i>
+                                <span>Adjust System Controls</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: KNOWLEDGE BASE -->
+            <section id="tab-knowledge" class="tab-content space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="relative flex-1 max-w-md">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                        <input type="text" id="kb-search" oninput="filterKnowledge()" placeholder="Search questions or keywords..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <button onclick="openKnowledgeModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>New Knowledge Article</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                            <tr>
+                                <th class="py-3 px-4">Category</th>
+                                <th class="py-3 px-4">Question</th>
+                                <th class="py-3 px-4">Filipino Translation</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kb-table-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 3: ANNOUNCEMENTS -->
+            <section id="tab-announcements" class="tab-content space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">Community Bulletins & Advisories</h3>
+                        <p class="text-xs text-slate-500">Disaster bulletins and El Niño notifications shown in chat</p>
+                    </div>
+                    <button onclick="openAnnouncementModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn"></i>
+                        <span>Post Announcement</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="announcements-grid">
+                    <!-- Populated dynamically -->
+                </div>
+            </section>
+
+            <!-- TAB 4: RESIDENT FEEDBACK -->
+            <section id="tab-feedback" class="tab-content space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">Citizen Feedback & Issues</h3>
+                        <p class="text-xs text-slate-500">Reports and queries submitted from the chatbot interface</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                            <tr>
+                                <th class="py-3 px-4">Date</th>
+                                <th class="py-3 px-4">Resident</th>
+                                <th class="py-3 px-4">Message</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 text-right">Update Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feedback-table-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 5: ADMIN USERS -->
+            <section id="tab-users" class="tab-content space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">Authorized Administrators</h3>
+                        <p class="text-xs text-slate-500">Manage console permissions and user accounts</p>
+                    </div>
+                    <button onclick="openUserModal()" id="btn-add-user" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Add Admin</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                            <tr>
+                                <th class="py-3 px-4">Administrator</th>
+                                <th class="py-3 px-4">Email</th>
+                                <th class="py-3 px-4">Role</th>
+                                <th class="py-3 px-4">Account Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 6: SYSTEM SETTINGS -->
+            <section id="tab-settings" class="tab-content space-y-6 max-w-4xl">
+                <!-- Section 1: Live Chatbot Controls -->
+                <div class="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Chatbot Operations & Availability</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Control live response availability for Padre Garcia citizens.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <!-- Chatbot Available Toggle -->
+                        <div class="p-4 rounded-xl border border-slate-200 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <label class="text-xs font-bold text-slate-800">Public Chat Service</label>
+                                <p class="text-[11px] text-slate-500">Allow residents to send and receive answers</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="pref-chatbot-available" class="sr-only peer" onchange="quickUpdateSettings()">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Maintenance Mode Toggle -->
+                        <div class="p-4 rounded-xl border border-slate-200 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <label class="text-xs font-bold text-slate-800">Maintenance Mode</label>
+                                <p class="text-[11px] text-slate-500">Temporarily show maintenance notice to users</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="pref-maintenance-mode" class="sr-only peer" onchange="quickUpdateSettings()">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Profile Update -->
+                <div class="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Your Administrator Profile</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Update your display name and login email.</p>
+                    </div>
+                    <form onsubmit="handleProfileUpdate(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                                <input type="text" id="profile-name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                                <input type="email" id="profile-email" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xs transition">
+                                Save Profile Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Section 3: Password Update -->
+                <div class="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Change Password</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Ensure your account uses a secure password (minimum 12 characters).</p>
+                    </div>
+                    <form onsubmit="handlePasswordUpdate(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Current Password</label>
+                                <input type="password" id="current-password" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">New Password (12+ chars)</label>
+                                <input type="password" id="new-password" required minlength="12" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition">
+                                Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Knowledge Base Modal -->
+    <div id="modal-kb" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 id="modal-kb-title" class="font-bold text-slate-900 text-sm">Add Knowledge Entry</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveKnowledge(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="kb-id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Category</label>
+                        <input type="text" id="kb-category" required placeholder="e.g. Health, Agriculture, Water" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Status</label>
+                        <select id="kb-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
+                            <option value="Published">Published</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Archived">Archived</option>
                         </select>
                     </div>
-
-                    <div class="table-wrap">
-                        <table id="knowledgeTable">
-                            <thead>
-                                <tr>
-                                    <th>ARTICLE TITLE</th>
-                                    <th>CATEGORY</th>
-                                    <th>DATE UPDATED</th>
-                                    <th>STATUS</th>
-                                    <th>ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="knowledgeRows"></tbody>
-                        </table>
-                    </div>
                 </div>
-            </div>
-
-        </section>
-
-
-        <!-- ANNOUNCEMENTS -->
-        <section class="page" id="announcements">
-
-            <div class="page-heading">
                 <div>
-                    <h1>Announcements</h1>
-                    <p>Create and manage community announcements.</p>
+                    <label class="block font-semibold text-slate-700 mb-1">Question / Prompt</label>
+                    <input type="text" id="kb-question" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
                 </div>
-
-                <button class="btn btn-primary"
-                    onclick="openModal('announcementModal')">
-                    + Create Announcement
-                </button>
-            </div>
-
-            <div class="panel">
-                <div class="panel-body">
-                    <div class="table-tools">
-                        <input class="search" placeholder="Search announcements..."
-                            oninput="searchTable(this,'announcementTable')">
-                    </div>
-
-                    <div class="table-wrap">
-                        <table id="announcementTable">
-                            <thead>
-                                <tr>
-                                    <th>TITLE</th>
-                                    <th>DATE PUBLISHED</th>
-                                    <th>STATUS</th>
-                                    <th>ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="announcementRows"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- COMMUNITY FEEDBACK -->
-        <section class="page" id="feedback">
-
-            <div class="page-heading">
                 <div>
-                    <h1>Community Feedback</h1>
-                    <p>Review feedback submitted by residents.</p>
+                    <label class="block font-semibold text-slate-700 mb-1">Answer (English)</label>
+                    <textarea id="kb-answer-en" rows="3" required class="w-full px-3 py-2 border border-slate-200 rounded-xl"></textarea>
                 </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-body">
-
-                    <div class="table-tools">
-                        <input class="search" placeholder="Search feedback..."
-                            oninput="searchTable(this,'feedbackTable')">
-                    </div>
-
-                    <div class="table-wrap">
-                        <table id="feedbackTable">
-                            <thead>
-                                <tr>
-                                    <th>RESIDENT</th>
-                                    <th>MESSAGE</th>
-                                    <th>DATE</th>
-                                    <th>STATUS</th>
-                                    <th>ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="feedbackRows"></tbody>
-                        </table>
-                    </div>
-
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- USER MANAGEMENT -->
-        <section class="page" id="users">
-
-            <div class="page-heading">
                 <div>
-                    <h1>User Management</h1>
-                    <p>Manage authorized administrator accounts.</p>
+                    <label class="block font-semibold text-slate-700 mb-1">Answer (Filipino / Tagalog)</label>
+                    <textarea id="kb-answer-tl" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-xl"></textarea>
                 </div>
-
-                <button class="btn btn-primary"
-                    onclick="openModal('userModal')">
-                    + Add Admin
-                </button>
-            </div>
-
-            <div class="panel">
-                <div class="panel-body">
-
-                    <div class="table-tools">
-                        <input class="search" placeholder="Search users..."
-                            oninput="searchTable(this,'userTable')">
-                    </div>
-
-                    <div class="table-wrap">
-                        <table id="userTable">
-                            <thead>
-                                <tr>
-                                    <th>NAME</th>
-                                    <th>EMAIL</th>
-                                    <th>ROLE</th>
-                                    <th>STATUS</th>
-                                    <th>ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="userRows"></tbody>
-                        </table>
-                    </div>
-
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- SETTINGS -->
-        <section class="page" id="settings">
-
-            <div class="page-heading">
                 <div>
-                    <h1>Settings</h1>
-                    <p>Manage your administrator profile and preferences.</p>
+                    <label class="block font-semibold text-slate-700 mb-1">Keywords (Comma separated)</label>
+                    <input type="text" id="kb-keywords" placeholder="e.g. heat, hydration, rhu" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
                 </div>
-            </div>
-
-            <div class="settings-grid">
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>Administrator Profile</h3>
-                    </div>
-
-                    <div class="panel-body">
-                        <form onsubmit="saveSettings(event)">
-                            <div class="form-group">
-                                <label>Full Name</label>
-                                <input id="adminName" required maxlength="100">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Email Address</label>
-                                <input id="adminEmail" type="email" required maxlength="254">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Current Password (required to change password)</label>
-                                <input id="currentPassword" type="password"
-                                    autocomplete="current-password">
-                            </div>
-
-                            <div class="form-group">
-                                <label>New Password</label>
-                                <input id="adminPassword" type="password"
-                                    placeholder="Enter a new password (12+ characters)"
-                                    minlength="12" autocomplete="new-password">
-                            </div>
-
-                            <button class="btn btn-primary" type="submit">
-                                Save Changes
-                            </button>
-                        </form>
-                    </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Save Article</button>
                 </div>
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3>System Preferences</h3>
-                    </div>
-
-                    <div class="panel-body">
-
-                        <div class="switch-row">
-                            <div>
-                                <strong>Notifications</strong>
-                                <small>Receive system notifications.</small>
-                            </div>
-                            <input id="notificationsEnabled" type="checkbox">
-                        </div>
-
-                        <div class="switch-row">
-                            <div>
-                                <strong>Chatbot Availability</strong>
-                                <small>Allow residents to access the chatbot.</small>
-                            </div>
-                            <input id="chatbotAvailable" type="checkbox">
-                        </div>
-
-                        <div class="switch-row">
-                            <div>
-                                <strong>Maintenance Mode</strong>
-                                <small>Temporarily disable public access.</small>
-                            </div>
-                            <input id="maintenanceMode" type="checkbox">
-                        </div>
-
-                    </div>
-                </div>
-
-            </div>
-
-        </section>
-
-    </div>
-</main>
-</div>
-
-
-<!-- KNOWLEDGE MODAL -->
-<div class="modal" id="knowledgeModal">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3>Add Knowledge Article</h3>
-            <button class="modal-close" onclick="closeModal('knowledgeModal')">×</button>
+            </form>
         </div>
-
-        <form onsubmit="addRecord(event,'knowledgeTable','knowledgeModal')">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Question / Article Title</label>
-                    <input name="question" required maxlength="200">
-                </div>
-
-                <div class="form-group">
-                    <label>Category</label>
-                    <select name="category" required>
-                        <option value="">Select category</option>
-                        <option>El Niño</option>
-                        <option>Health and Safety</option>
-                        <option>Preparedness</option>
-                        <option>Agriculture</option>
-                        <option>General Information</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>English Answer</label>
-                    <textarea name="answer_en" required maxlength="10000"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Filipino Answer (optional)</label>
-                    <textarea name="answer_tl" maxlength="10000"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Keywords (comma-separated, optional)</label>
-                    <input name="keywords" maxlength="1000">
-                </div>
-
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option>Draft</option>
-                        <option>Published</option>
-                        <option>Archived</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light"
-                    onclick="closeModal('knowledgeModal')">Cancel</button>
-                <button class="btn btn-primary">Save Article</button>
-            </div>
-        </form>
     </div>
-</div>
 
-
-<!-- ANNOUNCEMENT MODAL -->
-<div class="modal" id="announcementModal">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3>Create Announcement</h3>
-            <button class="modal-close"
-                onclick="closeModal('announcementModal')">×</button>
+    <!-- Announcement Modal -->
+    <div id="modal-announcement" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 id="modal-announcement-title" class="font-bold text-slate-900 text-sm">Post Community Announcement</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveAnnouncement(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="announcement-id">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Title</label>
+                    <input type="text" id="announcement-title" required placeholder="e.g. Water Rationing Schedule in Poblacion" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Content / Message</label>
+                    <textarea id="announcement-content" rows="4" required class="w-full px-3 py-2 border border-slate-200 rounded-xl"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Status</label>
+                        <select id="announcement-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
+                            <option value="Published">Published</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Archived">Archived</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Expiry Date (Optional)</label>
+                        <input type="date" id="announcement-expires" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Save Announcement</button>
+                </div>
+            </form>
         </div>
-
-        <form onsubmit="addRecord(event,'announcementTable','announcementModal')">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Announcement Title</label>
-                    <input name="title" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Announcement Content</label>
-                    <textarea name="content" required></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Expiration Date</label>
-                    <input name="expires_at" type="date">
-                </div>
-
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option>Draft</option>
-                        <option>Published</option>
-                        <option>Archived</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light"
-                    onclick="closeModal('announcementModal')">Cancel</button>
-                <button class="btn btn-primary">Save Announcement</button>
-            </div>
-        </form>
     </div>
-</div>
 
-
-<!-- USER MODAL -->
-<div class="modal" id="userModal">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3>Add Administrator</h3>
-            <button class="modal-close"
-                onclick="closeModal('userModal')">×</button>
+    <!-- Admin User Modal -->
+    <div id="modal-user" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 id="modal-user-title" class="font-bold text-slate-900 text-sm">Create Administrator</h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveUser(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="user-edit-id">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="user-form-name" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Email</label>
+                    <input type="email" id="user-form-email" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Password</label>
+                    <input type="password" id="user-form-password" minlength="12" placeholder="Leave empty to retain existing" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Role</label>
+                        <select id="user-form-role" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
+                            <option value="Admin">Admin</option>
+                            <option value="Content Manager">Content Manager</option>
+                            <option value="Super Admin">Super Admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Status</label>
+                        <select id="user-form-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModals()" class="px-4 py-2 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Save Account</button>
+                </div>
+            </form>
         </div>
-
-        <form onsubmit="addRecord(event,'userTable','userModal')">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input name="full_name" required maxlength="100">
-                </div>
-
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input name="email" type="email" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Password (12+ characters)</label>
-                    <input name="password" type="password" required minlength="12"
-                        autocomplete="new-password">
-                </div>
-
-                <div class="form-group">
-                    <label>Role</label>
-                    <select name="role">
-                        <option>Admin</option>
-                        <option>Content Manager</option>
-                        <option>Super Admin</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light"
-                    onclick="closeModal('userModal')">Cancel</button>
-                <button class="btn btn-primary">Add Admin</button>
-            </div>
-        </form>
     </div>
-</div>
 
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let currentCSRF = "";
+        let currentUser = null;
+        let knowledgeData = [];
+        let activityChart = null;
 
-<script>
-
-// NAVIGATION
-const navItems = document.querySelectorAll(".nav-item");
-const pages = document.querySelectorAll(".page");
-const pageTitle = document.getElementById("pageTitle");
-
-navItems.forEach(item => {
-    item.addEventListener("click", () => {
-        const target = item.dataset.page;
-
-        navItems.forEach(nav => nav.classList.remove("active"));
-        item.classList.add("active");
-
-        pages.forEach(page => page.classList.remove("active"));
-        document.getElementById(target).classList.add("active");
-
-        pageTitle.textContent = item.textContent.trim();
-
-        document.getElementById("sidebar").classList.remove("open");
-    });
-});
-
-function toggleSidebar() {
-    document.getElementById("sidebar").classList.toggle("open");
-}
-
-const records = { knowledge: {}, announcements: {}, feedback: {}, users: {} };
-let csrfToken = "";
-let currentAdmin = null;
-
-function showNotice(message, isError = false) {
-    const notice = document.getElementById("adminNotice");
-    notice.textContent = message;
-    notice.style.color = isError ? "#a4262c" : "#198754";
-}
-
-async function apiRequest(url, options = {}) {
-    const method = (options.method || "GET").toUpperCase();
-    const headers = { ...(options.headers || {}) };
-    if (options.body && typeof options.body !== "string") {
-        headers["Content-Type"] = "application/json";
-        options.body = JSON.stringify(options.body);
-    }
-    if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
-        headers["X-CSRF-Token"] = csrfToken;
-    }
-    const response = await fetch(url, { ...options, method, headers });
-    const result = await response.json();
-    if (response.status === 401) {
-        window.location.assign("/admin/login");
-        throw new Error("Please sign in again.");
-    }
-    if (!response.ok) {
-        throw new Error(result.error || `Request failed (${response.status}).`);
-    }
-    return result;
-}
-
-function formatDate(value) {
-    if (!value) return "—";
-    const parsed = new Date(String(value).replace(" ", "T") + "Z");
-    return Number.isNaN(parsed.getTime()) ? String(value) :
-        parsed.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-}
-
-function rowActions(modalId) {
-    return `<div class="actions">
-        <button class="action-btn" onclick="editRow(this,'${modalId}')">Edit</button>
-        <button class="action-btn" onclick="deleteRow(this)">Delete</button>
-    </div>`;
-}
-
-async function loadDashboard() {
-    const data = await apiRequest("/admin/api/dashboard");
-    document.getElementById("articleCount").textContent = data.knowledge_articles;
-    document.getElementById("announcementCount").textContent = data.published_announcements;
-    document.getElementById("feedbackCount").textContent = data.pending_feedback;
-    document.getElementById("userCount").textContent = data.admin_accounts;
-    const list = document.getElementById("activityList");
-    list.innerHTML = data.recent_activity.length
-        ? data.recent_activity.map(item =>
-            `<div class="activity"><div class="activity-icon">✓</div><div>
-                <strong>${escapeHTML(item.actor_name)} ${escapeHTML(item.action)}
-                ${escapeHTML(item.entity)}</strong>
-                <small>${escapeHTML(formatDate(item.created_at))}</small>
-            </div></div>`
-        ).join("")
-        : '<p class="muted">No recent activities.</p>';
-}
-
-async function loadKnowledge() {
-    const data = await apiRequest("/admin/api/knowledge");
-    records.knowledge = Object.fromEntries(data.items.map(item => [item.id, item]));
-    document.getElementById("knowledgeRows").innerHTML = data.items.map(item =>
-        `<tr data-id="${item.id}" data-type="knowledge">
-            <td><strong>${escapeHTML(item.question)}</strong></td>
-            <td>${escapeHTML(item.category)}</td>
-            <td>${escapeHTML(formatDate(item.updated_at || item.created_at))}</td>
-            <td><span class="badge ${getBadgeClass(item.status)}">${escapeHTML(item.status)}</span></td>
-            <td>${rowActions("knowledgeModal")}</td>
-        </tr>`
-    ).join("");
-}
-
-async function loadAnnouncements() {
-    const data = await apiRequest("/admin/api/announcements");
-    records.announcements = Object.fromEntries(data.items.map(item => [item.id, item]));
-    document.getElementById("announcementRows").innerHTML = data.items.map(item =>
-        `<tr data-id="${item.id}" data-type="announcements">
-            <td><strong>${escapeHTML(item.title)}</strong></td>
-            <td>${escapeHTML(formatDate(item.created_at))}</td>
-            <td><span class="badge ${getBadgeClass(item.status)}">${escapeHTML(item.status)}</span></td>
-            <td>${rowActions("announcementModal")}</td>
-        </tr>`
-    ).join("");
-}
-
-async function loadFeedback() {
-    const data = await apiRequest("/admin/api/feedback");
-    records.feedback = Object.fromEntries(data.items.map(item => [item.id, item]));
-    document.getElementById("feedbackRows").innerHTML = data.items.map(item => {
-        const nextLabel = item.status === "Pending" ? "Mark Reviewed" :
-            item.status === "Reviewed" ? "Mark Resolved" : "";
-        return `<tr data-id="${item.id}" data-type="feedback">
-            <td><strong>${escapeHTML(item.resident_name)}</strong></td>
-            <td>${escapeHTML(item.message)}</td>
-            <td>${escapeHTML(formatDate(item.created_at))}</td>
-            <td><span class="badge ${getBadgeClass(item.status)}">${escapeHTML(item.status)}</span></td>
-            <td>${nextLabel ? `<button class="action-btn" onclick="changeFeedback(this)">${nextLabel}</button>` : "—"}</td>
-        </tr>`;
-    }).join("");
-}
-
-async function loadUsers() {
-    const data = await apiRequest("/admin/api/users");
-    records.users = Object.fromEntries(data.items.map(item => [item.id, item]));
-    document.getElementById("userRows").innerHTML = data.items.map(item =>
-        `<tr data-id="${item.id}" data-type="users">
-            <td><strong>${escapeHTML(item.full_name)}</strong></td>
-            <td>${escapeHTML(item.email)}</td>
-            <td>${escapeHTML(item.role)}</td>
-            <td><span class="badge ${getBadgeClass(item.status)}">${escapeHTML(item.status)}</span></td>
-            <td>${rowActions("userModal")}</td>
-        </tr>`
-    ).join("");
-}
-
-async function loadSettings() {
-    const data = await apiRequest("/admin/api/settings");
-    document.getElementById("adminName").value = data.profile.full_name;
-    document.getElementById("adminEmail").value = data.profile.email;
-    document.getElementById("notificationsEnabled").checked =
-        data.preferences.notifications_enabled;
-    document.getElementById("chatbotAvailable").checked =
-        data.preferences.chatbot_available;
-    document.getElementById("maintenanceMode").checked =
-        data.preferences.maintenance_mode;
-}
-
-async function initializeAdmin() {
-    try {
-        const bootstrap = await apiRequest("/admin/api/bootstrap");
-        csrfToken = bootstrap.csrf_token;
-        currentAdmin = bootstrap.user;
-        document.querySelectorAll(".admin-mini strong, #profileName").forEach(el => {
-            el.textContent = currentAdmin.full_name;
-        });
-        document.querySelectorAll(".admin-mini small").forEach(el => {
-            el.textContent = currentAdmin.role;
-        });
-        document.querySelector(".profile-info small").textContent =
-            `${currentAdmin.role} · ${currentAdmin.email}`;
-        if (currentAdmin.role !== "Super Admin") {
-            document.querySelector('[data-page="users"]').hidden = true;
+        // Toast Helper
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const color = type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white';
+            el.className = `p-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-auto transition transform translate-y-2 opacity-0 ${color}`;
+            el.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'circle-check' : 'circle-exclamation'}"></i><span>${msg}</span>`;
+            container.appendChild(el);
+            setTimeout(() => { el.classList.remove('translate-y-2', 'opacity-0'); }, 10);
+            setTimeout(() => {
+                el.classList.add('opacity-0');
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
         }
-        await Promise.all([
-            loadDashboard(),
-            loadKnowledge(),
-            loadAnnouncements(),
-            loadFeedback(),
-            loadSettings(),
-            currentAdmin.role === "Super Admin" ? loadUsers() : Promise.resolve()
-        ]);
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
 
+        // Navigation
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('text-white', 'bg-slate-800/90', 'shadow-sm');
+                el.classList.add('text-slate-400');
+            });
 
-// MODALS
-function openModal(id) {
-    const modal = document.getElementById(id);
-    const form = modal.querySelector("form");
-    form.reset();
-    form.dataset.editingId = "";
-    if (form.elements.password) {
-        form.elements.password.required = true;
-    }
-    modal.querySelector(".modal-header h3").textContent =
-        id === "knowledgeModal" ? "Add Knowledge Article" :
-        id === "announcementModal" ? "Create Announcement" :
-        "Add Administrator";
-    modal.classList.add("show");
-}
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            const navBtn = document.getElementById(`nav-${tabId}`);
+            navBtn.classList.add('text-white', 'bg-slate-800/90', 'shadow-sm');
+            navBtn.classList.remove('text-slate-400');
 
-function closeModal(id) {
-    document.getElementById(id).classList.remove("show");
-}
+            const titles = {
+                dashboard: 'Overview Dashboard',
+                knowledge: 'Knowledge Base Management',
+                announcements: 'Community Announcements',
+                feedback: 'Resident Feedback & Submissions',
+                users: 'Administrator Directory',
+                settings: 'System & Service Settings'
+            };
+            document.getElementById('page-title').innerText = titles[tabId] || 'Console';
 
-
-// ADD RECORDS
-async function addRecord(event, tableId, modalId) {
-    event.preventDefault();
-    const form = event.target;
-    const type = {
-        knowledgeTable: "knowledge",
-        announcementTable: "announcements",
-        userTable: "users"
-    }[tableId];
-    const endpoint = `/admin/api/${type}`;
-    const payload = Object.fromEntries(new FormData(form).entries());
-    const id = form.dataset.editingId;
-    if (type === "users" && id && !payload.password) delete payload.password;
-    if (type === "announcements" && !payload.expires_at) payload.expires_at = null;
-    try {
-        await apiRequest(id ? `${endpoint}/${id}` : endpoint, {
-            method: id ? "PUT" : "POST",
-            body: payload
-        });
-        closeModal(modalId);
-        form.reset();
-        form.dataset.editingId = "";
-        if (type === "knowledge") await loadKnowledge();
-        if (type === "announcements") await loadAnnouncements();
-        if (type === "users") await loadUsers();
-        await loadDashboard();
-        showNotice(id ? "Record updated." : "Record added.");
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
-
-function getBadgeClass(status) {
-    const classes = {
-        "Published": "published",
-        "Draft": "draft",
-        "Archived": "archived",
-        "Active": "active-status",
-        "Inactive": "inactive",
-        "Pending": "pending",
-        "Reviewed": "reviewed",
-        "Resolved": "resolved"
-    };
-    return classes[status] || "pending";
-}
-
-function escapeHTML(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[char]);
-}
-
-
-// EDIT RECORD
-function editRow(button, modalId) {
-    const row = button.closest("tr");
-    const type = row.dataset.type;
-    const item = records[type][row.dataset.id];
-    if (!item) {
-        showNotice("This record is no longer available. Reload the page.", true);
-        return;
-    }
-    const modal = document.getElementById(modalId);
-    const form = modal.querySelector("form");
-    form.reset();
-    form.dataset.editingId = row.dataset.id;
-    if (type === "knowledge") {
-        form.elements.question.value = item.question;
-        form.elements.category.value = item.category;
-        form.elements.answer_en.value = item.answer_en;
-        form.elements.answer_tl.value = item.answer_tl || "";
-        form.elements.keywords.value = item.keywords || "";
-        form.elements.status.value = item.status;
-    } else if (type === "announcements") {
-        form.elements.title.value = item.title;
-        form.elements.content.value = item.content;
-        form.elements.expires_at.value = item.expires_at || "";
-        form.elements.status.value = item.status;
-    } else {
-        form.elements.full_name.value = item.full_name;
-        form.elements.email.value = item.email;
-        form.elements.role.value = item.role;
-        form.elements.status.value = item.status;
-        form.elements.password.required = false;
-        form.elements.password.placeholder = "Leave blank to keep current password";
-    }
-    modal.querySelector(".modal-header h3").textContent = "Edit Record";
-    modal.classList.add("show");
-}
-
-
-// DELETE RECORD
-async function deleteRow(button) {
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    const row = button.closest("tr");
-    const type = row.dataset.type;
-    try {
-        await apiRequest(`/admin/api/${type}/${row.dataset.id}`, { method: "DELETE" });
-        if (type === "knowledge") await loadKnowledge();
-        if (type === "announcements") await loadAnnouncements();
-        if (type === "users") await loadUsers();
-        await loadDashboard();
-        showNotice("Record deleted.");
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
-
-
-// FEEDBACK STATUS
-async function changeFeedback(button) {
-    const row = button.closest("tr");
-    const item = records.feedback[row.dataset.id];
-    const status = item.status === "Pending" ? "Reviewed" : "Resolved";
-    try {
-        await apiRequest(`/admin/api/feedback/${row.dataset.id}`, {
-            method: "PATCH",
-            body: { status }
-        });
-        await loadFeedback();
-        await loadDashboard();
-        showNotice(`Feedback marked ${status.toLowerCase()}.`);
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
-
-
-// SEARCH
-function searchTable(input, tableId) {
-    const query = input.value.toLowerCase();
-    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-
-    rows.forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(query)
-            ? "" : "none";
-    });
-}
-
-
-// FILTER STATUS
-function filterStatus(select, tableId) {
-    const status = select.value.toLowerCase();
-    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-
-    rows.forEach(row => {
-        const statusCell = tableId === "announcementTable" ? row.cells[2] : row.cells[3];
-        const rowStatus = statusCell?.innerText.toLowerCase() || "";
-        row.style.display = !status || rowStatus === status ? "" : "none";
-    });
-}
-
-
-// ACTIVITY LOG
-function logActivity(message) {
-    const list = document.getElementById("activityList");
-
-    if (list.querySelector(".muted")) {
-        list.innerHTML = "";
-    }
-
-    const activity = document.createElement("div");
-    activity.className = "activity";
-
-    const icon = document.createElement("div");
-    icon.className = "activity-icon";
-    icon.textContent = "✓";
-
-    const content = document.createElement("div");
-    const title = document.createElement("strong");
-    title.textContent = message;
-
-    const time = document.createElement("small");
-    time.textContent = "Just now";
-
-    content.append(title, time);
-    activity.append(icon, content);
-
-    list.prepend(activity);
-}
-
-
-// DASHBOARD COUNTS
-function updateDashboard() {
-    return loadDashboard();
-}
-
-
-// SETTINGS
-async function saveSettings(event) {
-    event.preventDefault();
-    const payload = {
-        full_name: document.getElementById("adminName").value,
-        email: document.getElementById("adminEmail").value,
-        current_password: document.getElementById("currentPassword").value,
-        new_password: document.getElementById("adminPassword").value,
-        preferences: {
-            notifications_enabled: document.getElementById("notificationsEnabled").checked,
-            chatbot_available: document.getElementById("chatbotAvailable").checked,
-            maintenance_mode: document.getElementById("maintenanceMode").checked
+            if (tabId === 'knowledge') loadKnowledge();
+            if (tabId === 'announcements') loadAnnouncements();
+            if (tabId === 'feedback') loadFeedback();
+            if (tabId === 'users') loadUsers();
         }
-    };
-    try {
-        const data = await apiRequest("/admin/api/settings", {
-            method: "PUT",
-            body: payload
+
+        function closeModals() {
+            document.querySelectorAll('[id^="modal-"]').forEach(el => el.classList.add('hidden'));
+        }
+
+        // API Fetch Wrapper
+        async function api(url, opts = {}) {
+            opts.headers = opts.headers || {};
+            if (currentCSRF) opts.headers['X-CSRF-Token'] = currentCSRF;
+            if (opts.body && typeof opts.body === 'object') {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(opts.body);
+            }
+            const res = await fetch(url, opts);
+            if (res.status === 401) {
+                window.location.href = '/admin/login';
+                return null;
+            }
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Server error');
+            return json;
+        }
+
+        // Bootstrap App
+        async function refreshBootstrap() {
+            try {
+                const data = await api('/admin/api/bootstrap');
+                if (!data) return;
+                currentCSRF = data.csrf_token;
+                currentUser = data.user;
+
+                // Update UI user pill
+                document.getElementById('user-name').innerText = currentUser.full_name;
+                document.getElementById('user-role').innerText = currentUser.role;
+                document.getElementById('user-initials').innerText = currentUser.full_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+
+                if (currentUser.role !== 'Super Admin') {
+                    const userNav = document.getElementById('nav-users');
+                    if (userNav) userNav.style.display = 'none';
+                }
+
+                // Automatic status evaluation from telemetry
+                updateSystemStatusBadge(data.settings, data.system_health);
+
+                // Populate KPI counters
+                document.getElementById('stat-chats').innerText = data.dashboard.total_chat_sessions || 0;
+                document.getElementById('stat-kb').innerText = data.dashboard.total_knowledge || 0;
+                document.getElementById('stat-announcements').innerText = data.dashboard.total_announcements || 0;
+                document.getElementById('stat-feedback').innerText = data.dashboard.total_feedback || 0;
+
+                // Diagnostics
+                document.getElementById('diag-bot-mode').innerText = data.settings.chatbot_available ? 'Active (Public)' : 'Disabled';
+                document.getElementById('diag-dataset').innerText = `${data.system_health.dataset_rows || 0} Records loaded`;
+                document.getElementById('diag-model').innerText = data.system_health.model_loaded ? 'Trained & Operational' : 'Model Missing';
+
+                // Preferences
+                document.getElementById('pref-chatbot-available').checked = !!data.settings.chatbot_available;
+                document.getElementById('pref-maintenance-mode').checked = !!data.settings.maintenance_mode;
+                document.getElementById('profile-name').value = currentUser.full_name;
+                document.getElementById('profile-email').value = currentUser.email;
+
+                renderChart(data.dashboard.recent_activity || []);
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Compute Live System Status Dynamically
+        function updateSystemStatusBadge(settings, health) {
+            const pulse = document.getElementById('status-pulse');
+            const label = document.getElementById('status-label');
+
+            if (settings.maintenance_mode) {
+                pulse.innerHTML = `<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>`;
+                label.innerText = 'Maintenance';
+                label.className = 'text-xs font-semibold text-amber-400 truncate';
+            } else if (!settings.chatbot_available) {
+                pulse.innerHTML = `<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>`;
+                label.innerText = 'Offline';
+                label.className = 'text-xs font-semibold text-rose-400 truncate';
+            } else if (health && !health.model_loaded) {
+                pulse.innerHTML = `<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>`;
+                label.innerText = 'Degraded (No ML)';
+                label.className = 'text-xs font-semibold text-yellow-400 truncate';
+            } else {
+                pulse.innerHTML = `<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>`;
+                label.innerText = 'Operational';
+                label.className = 'text-xs font-semibold text-emerald-400 truncate';
+            }
+        }
+
+        // Render Activity Chart
+        function renderChart(activityData) {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            if (activityChart) activityChart.destroy();
+
+            const labels = activityData.map(d => d.date || 'Day');
+            const values = activityData.map(d => d.count || 0);
+
+            activityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Citizen Questions',
+                        data: values.length ? values : [4, 12, 19, 14, 23, 17, 28],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#10b981',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // Knowledge Base Functions
+        async function loadKnowledge() {
+            try {
+                const res = await api('/admin/api/knowledge');
+                knowledgeData = res.items || [];
+                renderKnowledgeTable(knowledgeData);
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function renderKnowledgeTable(items) {
+            const tbody = document.getElementById('kb-table-body');
+            tbody.innerHTML = items.length ? items.map(item => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 font-semibold text-slate-800">${item.category}</td>
+                    <td class="py-3 px-4 max-w-xs truncate" title="${item.question}">${item.question}</td>
+                    <td class="py-3 px-4 max-w-xs truncate text-slate-500">${item.answer_tl ? item.answer_tl : '<span class="text-slate-300">N/A</span>'}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${item.status === 'Published' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">${item.status}</span>
+                    </td>
+                    <td class="py-3 px-4 text-right space-x-2">
+                        <button onclick='editKnowledge(${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-800"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteKnowledge(${item.id})" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('') : `<tr><td colspan="5" class="py-8 text-center text-slate-400">No knowledge articles found.</td></tr>`;
+        }
+
+        function filterKnowledge() {
+            const q = document.getElementById('kb-search').value.toLowerCase();
+            const filtered = knowledgeData.filter(i => i.question.toLowerCase().includes(q) || i.category.toLowerCase().includes(q));
+            renderKnowledgeTable(filtered);
+        }
+
+        function openKnowledgeModal() {
+            document.getElementById('kb-id').value = '';
+            document.getElementById('kb-category').value = '';
+            document.getElementById('kb-question').value = '';
+            document.getElementById('kb-answer-en').value = '';
+            document.getElementById('kb-answer-tl').value = '';
+            document.getElementById('kb-keywords').value = '';
+            document.getElementById('kb-status').value = 'Published';
+            document.getElementById('modal-kb-title').innerText = 'Add Knowledge Article';
+            document.getElementById('modal-kb').classList.remove('hidden');
+        }
+
+        function editKnowledge(item) {
+            document.getElementById('kb-id').value = item.id;
+            document.getElementById('kb-category').value = item.category;
+            document.getElementById('kb-question').value = item.question;
+            document.getElementById('kb-answer-en').value = item.answer_en;
+            document.getElementById('kb-answer-tl').value = item.answer_tl || '';
+            document.getElementById('kb-keywords').value = item.keywords || '';
+            document.getElementById('kb-status').value = item.status;
+            document.getElementById('modal-kb-title').innerText = 'Edit Knowledge Article';
+            document.getElementById('modal-kb').classList.remove('hidden');
+        }
+
+        async function saveKnowledge(e) {
+            e.preventDefault();
+            const id = document.getElementById('kb-id').value;
+            const payload = {
+                category: document.getElementById('kb-category').value,
+                question: document.getElementById('kb-question').value,
+                answer_en: document.getElementById('kb-answer-en').value,
+                answer_tl: document.getElementById('kb-answer-tl').value,
+                keywords: document.getElementById('kb-keywords').value,
+                status: document.getElementById('kb-status').value
+            };
+            try {
+                if (id) {
+                    await api(`/admin/api/knowledge/${id}`, { method: 'PUT', body: payload });
+                    showToast('Article updated successfully');
+                } else {
+                    await api('/admin/api/knowledge', { method: 'POST', body: payload });
+                    showToast('Article created successfully');
+                }
+                closeModals();
+                loadKnowledge();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteKnowledge(id) {
+            if (!confirm('Are you sure you want to delete this article?')) return;
+            try {
+                await api(`/admin/api/knowledge/${id}`, { method: 'DELETE' });
+                showToast('Article deleted');
+                loadKnowledge();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        // Announcements Functions (Automatic Expiry Evaluation)
+        async function loadAnnouncements() {
+            try {
+                const res = await api('/admin/api/announcements');
+                const grid = document.getElementById('announcements-grid');
+                const today = new Date().toISOString().split('T')[0];
+
+                grid.innerHTML = res.items.length ? res.items.map(a => {
+                    const isExpired = a.expires_at && a.expires_at < today;
+                    const statusBadge = isExpired
+                        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">Auto-Expired</span>`
+                        : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${a.status === 'Published' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">${a.status}</span>`;
+
+                    return `
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-3">
+                            <div>
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="font-bold text-slate-900 text-xs leading-snug">${a.title}</h4>
+                                    ${statusBadge}
+                                </div>
+                                <p class="text-xs text-slate-600 mt-2 line-clamp-3">${a.content}</p>
+                            </div>
+                            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                                <span>Expires: ${a.expires_at || 'Never'}</span>
+                                <div class="space-x-2">
+                                    <button onclick='editAnnouncement(${JSON.stringify(a)})' class="text-blue-600 hover:text-blue-800 font-semibold">Edit</button>
+                                    <button onclick="deleteAnnouncement(${a.id})" class="text-rose-500 hover:text-rose-700 font-semibold">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('') : `<div class="col-span-3 py-8 text-center text-slate-400">No community bulletins posted yet.</div>`;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openAnnouncementModal() {
+            document.getElementById('announcement-id').value = '';
+            document.getElementById('announcement-title').value = '';
+            document.getElementById('announcement-content').value = '';
+            document.getElementById('announcement-status').value = 'Published';
+            document.getElementById('announcement-expires').value = '';
+            document.getElementById('modal-announcement-title').innerText = 'Post Community Announcement';
+            document.getElementById('modal-announcement').classList.remove('hidden');
+        }
+
+        function editAnnouncement(item) {
+            document.getElementById('announcement-id').value = item.id;
+            document.getElementById('announcement-title').value = item.title;
+            document.getElementById('announcement-content').value = item.content;
+            document.getElementById('announcement-status').value = item.status;
+            document.getElementById('announcement-expires').value = item.expires_at || '';
+            document.getElementById('modal-announcement-title').innerText = 'Edit Announcement';
+            document.getElementById('modal-announcement').classList.remove('hidden');
+        }
+
+        async function saveAnnouncement(e) {
+            e.preventDefault();
+            const id = document.getElementById('announcement-id').value;
+            const payload = {
+                title: document.getElementById('announcement-title').value,
+                content: document.getElementById('announcement-content').value,
+                status: document.getElementById('announcement-status').value,
+                expires_at: document.getElementById('announcement-expires').value || null
+            };
+            try {
+                if (id) {
+                    await api(`/admin/api/announcements/${id}`, { method: 'PUT', body: payload });
+                    showToast('Announcement updated');
+                } else {
+                    await api('/admin/api/announcements', { method: 'POST', body: payload });
+                    showToast('Announcement broadcasted');
+                }
+                closeModals();
+                loadAnnouncements();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteAnnouncement(id) {
+            if (!confirm('Delete this announcement?')) return;
+            try {
+                await api(`/admin/api/announcements/${id}`, { method: 'DELETE' });
+                showToast('Announcement removed');
+                loadAnnouncements();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        // Resident Feedback
+        async function loadFeedback() {
+            try {
+                const res = await api('/admin/api/feedback');
+                const tbody = document.getElementById('feedback-table-body');
+                tbody.innerHTML = res.items.length ? res.items.map(f => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${f.created_at ? f.created_at.substring(0,10) : 'Today'}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${f.resident_name || 'Anonymous'}</td>
+                        <td class="py-3 px-4 max-w-sm">${f.message}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${f.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${f.status}</span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <select onchange="updateFeedbackStatus(${f.id}, this.value)" class="text-xs px-2 py-1 bg-white border border-slate-200 rounded-lg">
+                                <option value="Pending" ${f.status === 'Pending' ? 'selected':''}>Pending</option>
+                                <option value="Reviewed" ${f.status === 'Reviewed' ? 'selected':''}>Reviewed</option>
+                                <option value="Resolved" ${f.status === 'Resolved' ? 'selected':''}>Resolved</option>
+                            </select>
+                        </td>
+                    </tr>
+                `).join('') : `<tr><td colspan="5" class="py-8 text-center text-slate-400">No resident feedback received yet.</td></tr>`;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function updateFeedbackStatus(id, newStatus) {
+            try {
+                await api(`/admin/api/feedback/${id}`, { method: 'PATCH', body: { status: newStatus } });
+                showToast('Status updated');
+                loadFeedback();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        // User Management
+        async function loadUsers() {
+            try {
+                const res = await api('/admin/api/users');
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = res.items.map(u => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3 px-4 font-semibold text-slate-800">${u.full_name}</td>
+                        <td class="py-3 px-4 text-slate-500">${u.email}</td>
+                        <td class="py-3 px-4 font-medium text-slate-700">${u.role}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${u.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">${u.status}</span>
+                        </td>
+                        <td class="py-3 px-4 text-right space-x-2">
+                            <button onclick='editUser(${JSON.stringify(u)})' class="text-blue-600 hover:text-blue-800"><i class="fa-solid fa-pen"></i></button>
+                            ${u.id !== currentUser.id ? `<button onclick="deleteUser(${u.id})" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openUserModal() {
+            document.getElementById('user-edit-id').value = '';
+            document.getElementById('user-form-name').value = '';
+            document.getElementById('user-form-email').value = '';
+            document.getElementById('user-form-password').value = '';
+            document.getElementById('user-form-password').required = true;
+            document.getElementById('user-form-role').value = 'Admin';
+            document.getElementById('user-form-status').value = 'Active';
+            document.getElementById('modal-user-title').innerText = 'Add Administrator';
+            document.getElementById('modal-user').classList.remove('hidden');
+        }
+
+        function editUser(u) {
+            document.getElementById('user-edit-id').value = u.id;
+            document.getElementById('user-form-name').value = u.full_name;
+            document.getElementById('user-form-email').value = u.email;
+            document.getElementById('user-form-password').value = '';
+            document.getElementById('user-form-password').required = false;
+            document.getElementById('user-form-role').value = u.role;
+            document.getElementById('user-form-status').value = u.status;
+            document.getElementById('modal-user-title').innerText = 'Edit Administrator';
+            document.getElementById('modal-user').classList.remove('hidden');
+        }
+
+        async function saveUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('user-edit-id').value;
+            const payload = {
+                full_name: document.getElementById('user-form-name').value,
+                email: document.getElementById('user-form-email').value,
+                role: document.getElementById('user-form-role').value,
+                status: document.getElementById('user-form-status').value
+            };
+            const pwd = document.getElementById('user-form-password').value;
+            if (pwd) payload.password = pwd;
+
+            try {
+                if (id) {
+                    await api(`/admin/api/users/${id}`, { method: 'PUT', body: payload });
+                    showToast('Admin user updated');
+                } else {
+                    await api('/admin/api/users', { method: 'POST', body: payload });
+                    showToast('Admin user created');
+                }
+                closeModals();
+                loadUsers();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to remove this admin?')) return;
+            try {
+                await api(`/admin/api/users/${id}`, { method: 'DELETE' });
+                showToast('Admin removed');
+                loadUsers();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        // Settings & Operations
+        async function quickUpdateSettings() {
+            const payload = {
+                preferences: {
+                    chatbot_available: document.getElementById('pref-chatbot-available').checked,
+                    maintenance_mode: document.getElementById('pref-maintenance-mode').checked
+                }
+            };
+            try {
+                const res = await api('/admin/api/settings', { method: 'PUT', body: payload });
+                updateSystemStatusBadge(res.preferences, { model_loaded: true, dataset_rows: 100 });
+                showToast('Operational status updated');
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function handleProfileUpdate(e) {
+            e.preventDefault();
+            const payload = {
+                full_name: document.getElementById('profile-name').value,
+                email: document.getElementById('profile-email').value
+            };
+            try {
+                await api('/admin/api/settings', { method: 'PUT', body: payload });
+                showToast('Profile updated successfully');
+                refreshBootstrap();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function handlePasswordUpdate(e) {
+            e.preventDefault();
+            const payload = {
+                current_password: document.getElementById('current-password').value,
+                new_password: document.getElementById('new-password').value
+            };
+            try {
+                await api('/admin/api/settings', { method: 'PUT', body: payload });
+                showToast('Password changed successfully');
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function handleLogout() {
+            try {
+                await api('/admin/api/logout', { method: 'POST' });
+                window.location.href = '/admin/login';
+            } catch (err) { window.location.href = '/admin/login'; }
+        }
+
+        // Initial launch
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshBootstrap();
         });
-        currentAdmin.full_name = data.profile.full_name;
-        currentAdmin.email = data.profile.email;
-        document.querySelectorAll(".admin-mini strong, #profileName").forEach(el => {
-            el.textContent = currentAdmin.full_name;
-        });
-        document.querySelector(".profile-info small").textContent =
-            `${currentAdmin.role} · ${currentAdmin.email}`;
-        document.getElementById("currentPassword").value = "";
-        document.getElementById("adminPassword").value = "";
-        await loadDashboard();
-        showNotice("Settings saved.");
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
-
-async function logoutAdmin() {
-    try {
-        await apiRequest("/admin/api/logout", { method: "POST" });
-        window.location.assign("/admin/login");
-    } catch (error) {
-        showNotice(error.message, true);
-    }
-}
-
-// INITIALIZE
-initializeAdmin();
-
-</script>
-
+    </script>
 </body>
 </html>
