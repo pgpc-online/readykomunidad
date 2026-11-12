@@ -314,6 +314,33 @@ function getCurrentTime() {
 // MARKDOWN FORMATTER + HTML SANITIZER
 // ==========================================
 
+function sanitizeChatHtml(html) {
+    return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+            'div', 'span', 'p', 'br',
+            'strong', 'em', 'b', 'i',
+            'h1', 'h2', 'h3', 'h4',
+            'ul', 'ol', 'li',
+            'a', 'img', 'code', 'pre',
+            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            'button',
+            'svg', 'path', 'rect', 'line',
+            'circle', 'polyline', 'polygon',
+            'g', 'text', 'tspan'
+        ],
+        ALLOWED_ATTR: [
+            'class', 'src', 'alt', 'title',
+            'href', 'target', 'rel',
+            'width', 'height', 'viewBox',
+            'd', 'fill', 'stroke', 'stroke-width',
+            'x', 'y', 'x1', 'x2', 'y1', 'y2',
+            'cx', 'cy', 'r', 'rx', 'ry',
+            'points', 'transform', 'colspan', 'rowspan',
+            'data-prompt'
+        ]
+    });
+}
+
 function formatMarkdown(text) {
     if (!text) return '';
 
@@ -327,6 +354,10 @@ function formatMarkdown(text) {
             return `data-prompt="${escapeHTML(prompt)}"`;
         }
     );
+
+    if (result.includes('<!-- RAINFALL_CARD -->')) {
+        return sanitizeChatHtml(result);
+    }
 
     // Markdown formatting
     result = result
@@ -390,30 +421,7 @@ function formatMarkdown(text) {
 
     // Sanitize all chatbot-generated HTML.
     // Safe formatting is preserved; executable HTML/JavaScript is removed.
-    return DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: [
-            'div', 'span', 'p', 'br',
-            'strong', 'em', 'b', 'i',
-            'h1', 'h2', 'h3', 'h4',
-            'ul', 'ol', 'li',
-            'a', 'img', 'code', 'pre',
-            'table', 'thead', 'tbody', 'tr', 'th', 'td',
-            'button',
-            'svg', 'path', 'rect', 'line',
-            'circle', 'polyline', 'polygon',
-            'g', 'text', 'tspan'
-        ],
-        ALLOWED_ATTR: [
-            'class', 'src', 'alt', 'title',
-            'href', 'target', 'rel',
-            'width', 'height', 'viewBox',
-            'd', 'fill', 'stroke', 'stroke-width',
-            'x', 'y', 'x1', 'x2', 'y1', 'y2',
-            'cx', 'cy', 'r', 'rx', 'ry',
-            'points', 'transform', 'colspan', 'rowspan',
-            'data-prompt'
-        ]
-    });
+    return sanitizeChatHtml(html);
 }
 
 
