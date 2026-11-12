@@ -7050,7 +7050,20 @@ def _announcement_payload(data):
 def admin_page():
     if not _current_admin():
         return redirect(url_for("admin_login"))
-    return send_from_directory(app.root_path, "admin.html")
+    
+    # Check multiple common directories so PythonAnywhere never crashes
+    candidate_paths = [
+        os.path.dirname(os.path.abspath(__file__)),
+        app.root_path,
+        os.getcwd(),
+        '/home/readykomunidad'
+    ]
+    for directory in candidate_paths:
+        file_path = os.path.join(directory, "admin.html")
+        if os.path.exists(file_path):
+            return send_from_directory(directory, "admin.html")
+            
+    return "<h3>Error: admin.html was not found in the project directory. Please check the Files tab.</h3>", 404
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -7068,21 +7081,18 @@ def admin_login():
         username = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
 
-        # Direct prototype bypass: If admin / admin123 is entered
+        # Prototype login bypass for admin / admin123
         if username == "admin" and password == "admin123":
-            # Ensure DB row exists and fetch it
+            ensure_default_prototype_admin()
             user = db.get_admin_user_by_email("admin")
-            if not user:
-                ensure_default_prototype_admin()
-                user = db.get_admin_user_by_email("admin")
+            if user:
+                session.clear()
+                session.permanent = True
+                session["admin_user_id"] = user["id"]
+                session["admin_csrf_token"] = token_urlsafe(32)
+                return redirect(url_for("admin_page"))
 
-            session.clear()
-            session.permanent = True
-            session["admin_user_id"] = user["id"]
-            session["admin_csrf_token"] = token_urlsafe(32)
-            return redirect(url_for("admin_page"))
-
-        # Fallback to standard DB hash check for any other user
+        # Standard check for other users
         user = db.get_admin_user_by_email(username)
         if (
             user and user["status"] == "Active"
