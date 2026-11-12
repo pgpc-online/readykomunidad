@@ -33,35 +33,36 @@ db.init_db()
 
 
 # --- PROTOTYPE AUTO-ADMIN REPAIR ---
+# --- PROTOTYPE AUTO-ADMIN REPAIR ---
 def ensure_default_prototype_admin():
     """Ensure the prototype admin (admin / admin123) always exists in SQLite."""
     try:
-        # Check if 'admin' exists
         user = db.get_admin_user_by_email("admin")
         hashed_pwd = generate_password_hash("admin123")
         
-        if not user:
-            # Create default admin directly
-            with db.get_db() as conn:
-                conn.execute(
+        with db.get_db() as conn:
+            cur = conn.cursor()
+            if not user:
+                cur.execute(
                     "INSERT INTO admin_users (full_name, email, password_hash, role, status) "
                     "VALUES (?, ?, ?, ?, ?)",
                     ("Prototype Super Admin", "admin", hashed_pwd, "Super Admin", "Active")
                 )
                 conn.commit()
-            print("[Admin Setup] Default account ready: admin / admin123")
-        else:
-            # In case the password was changed/corrupted, reset it back to admin123
-            with db.get_db() as conn:
-                conn.execute(
+                print("[Admin Setup] Default account created: admin / admin123")
+            else:
+                cur.execute(
                     "UPDATE admin_users SET password_hash = ?, status = 'Active', role = 'Super Admin' "
                     "WHERE email = 'admin'",
                     (hashed_pwd,)
                 )
                 conn.commit()
+                print("[Admin Setup] Prototype admin verified: admin / admin123")
     except Exception as e:
         print(f"[Admin Setup Error]: {e}")
 
+# Call it immediately on server startup
+ensure_default_prototype_admin()
 # Call it immediately on server startup
 ensure_default_prototype_admin()
 
@@ -6842,7 +6843,7 @@ ADMIN_AUTH_TEMPLATE = """
     h1{font-size:1.5rem;margin-top:0}label{display:block;margin:1rem 0 .4rem}
     input{box-sizing:border-box;width:100%;padding:.75rem;border:1px solid #ccd5df;
       border-radius:6px}button{margin-top:1.2rem;padding:.8rem 1rem;width:100%;
-      border:0;border-radius:6px;background:#174b7a;color:white;font-weight:600}
+      border:0;border-radius:6px;background:#174b7a;color:white;font-weight:600;cursor:pointer}
     .error{color:#a4262c;background:#fde7e9;padding:.7rem;border-radius:6px}
     p{line-height:1.5}.muted{color:#687785;font-size:.9rem}
   </style>
@@ -6851,17 +6852,14 @@ ADMIN_AUTH_TEMPLATE = """
 <main>
   <h1>{{ title }}</h1>
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-  
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label for="email">Username</label>
-    <input id="email" name="email" type="email" autocomplete="username" required maxlength="254">
+    <input id="email" name="email" type="text" autocomplete="username" value="admin" required maxlength="254">
     <label for="password">Password</label>
-    <input id="password" name="password" type="password"
-      autocomplete="current-password" required>
-      <button type="submit">Sign in</button>
-    </form>
-  {% endif %}
+    <input id="password" name="password" type="password" value="admin123" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+  </form>
   <p class="muted"><a href="/">Return to chatbot</a></p>
 </main>
 </body>
@@ -6952,7 +6950,12 @@ def _optional_text(data, key, label, max_length):
 
 
 def _valid_email(value):
-    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value))
+    if not value or not isinstance(value, str):
+        return False
+    val = value.strip().lower()
+    if val == "admin":
+        return True
+    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", val))
 
 
 @app.cli.command("create-admin")
