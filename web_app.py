@@ -34,8 +34,9 @@ db.init_db()
 
 # --- PROTOTYPE AUTO-ADMIN REPAIR ---
 # --- PROTOTYPE AUTO-ADMIN REPAIR ---
+# --- PROTOTYPE AUTO-ADMIN REPAIR ---
 def ensure_default_prototype_admin():
-    """Ensure the prototype admin (admin / admin123) always exists in SQLite."""
+    """Ensure prototype admin (admin / admin123) exists in SQLite."""
     try:
         user = db.get_admin_user_by_email("admin")
         hashed_pwd = generate_password_hash("admin123")
@@ -49,7 +50,6 @@ def ensure_default_prototype_admin():
                     ("Prototype Super Admin", "admin", hashed_pwd, "Super Admin", "Active")
                 )
                 conn.commit()
-                print("[Admin Setup] Default account created: admin / admin123")
             else:
                 cur.execute(
                     "UPDATE admin_users SET password_hash = ?, status = 'Active', role = 'Super Admin' "
@@ -57,13 +57,10 @@ def ensure_default_prototype_admin():
                     (hashed_pwd,)
                 )
                 conn.commit()
-                print("[Admin Setup] Prototype admin verified: admin / admin123")
     except Exception as e:
         print(f"[Admin Setup Error]: {e}")
 
-# Call it immediately on server startup
-ensure_default_prototype_admin()
-# Call it immediately on server startup
+
 ensure_default_prototype_admin()
 
 DATA_FILE = 'chatbot_master_climate_data.csv'
@@ -6855,9 +6852,9 @@ ADMIN_AUTH_TEMPLATE = """
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label for="email">Username</label>
-    <input id="email" name="email" type="text" autocomplete="username" value="admin" required maxlength="254">
+    <input id="email" name="email" type="text" autocomplete="username" placeholder="Enter username" required maxlength="254">
     <label for="password">Password</label>
-    <input id="password" name="password" type="password" value="admin123" autocomplete="current-password" required>
+    <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter password" required>
     <button type="submit">Sign in</button>
   </form>
   <p class="muted"><a href="/">Return to chatbot</a></p>
