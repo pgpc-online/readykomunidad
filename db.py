@@ -636,10 +636,16 @@ def get_admin_dashboard():
     try:
         total_chats = conn.execute("SELECT COUNT(DISTINCT session_id) FROM chatlogs").fetchone()[0]
         total_kb = conn.execute("SELECT COUNT(*) FROM knowledge_base WHERE status = 'Published'").fetchone()[0]
-        total_ann = conn.execute("SELECT COUNT(*) FROM announcements WHERE status = 'Published'").fetchone()[0]
-        total_feed = conn.execute("SELECT COUNT(*) FROM community_feedback").fetchone()[0]
+        total_ann = conn.execute(
+            "SELECT COUNT(*) FROM announcements WHERE status = 'Published' "
+            "AND (expires_at IS NULL OR date(expires_at) >= date('now'))"
+        ).fetchone()[0]
         
-        # Recent activity logs
+        # COUNT ONLY PENDING FEEDBACK (Subtracts resolved/reviewed items!)
+        total_feed = conn.execute(
+            "SELECT COUNT(*) FROM community_feedback WHERE status = 'Pending'"
+        ).fetchone()[0]
+        
         recent_activity = []
         try:
             rows = conn.execute(
@@ -657,18 +663,8 @@ def get_admin_dashboard():
             "total_feedback": total_feed,
             "recent_activity": recent_activity
         }
-    except Exception as e:
-        print(f"[get_admin_dashboard error]: {e}")
-        return {
-            "total_chat_sessions": 0,
-            "total_knowledge": 0,
-            "total_announcements": 0,
-            "total_feedback": 0,
-            "recent_activity": []
-        }
     finally:
         conn.close()
-
 
 # ----------------------------------------------------------------------
 # Starter content. Covers topics the rule-based router does NOT already
