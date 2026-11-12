@@ -587,7 +587,13 @@
         let currentUser = null;
         let knowledgeData = [];
         let activityChart = null;
-
+// HTML Escape Helper
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
         // Toast Helper
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
