@@ -2379,7 +2379,7 @@ import difflib
 TYPO_VOCAB = [
     "nino", "nina", "affect", "affects", "rainfall", "rain", "drought",
     "temperature", "prediction", "predict", "forecast", "dehydration",
-    "heatstroke", "exhaustion", "conserve", "health", "agriculture", "affected"
+    "heatstroke", "exhaustion", "conserve", "health", "agriculture", "affected", "effect", "effects"
 ]
 
 def normalize_typos(text):
